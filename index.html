@@ -104,33 +104,53 @@
 
   // Scene setup
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x000000, 0.03);
+  scene.background = new THREE.Color(0x0a0a0f);
+  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.02);
 
-  const camera = new THREE.PerspectiveCamera(60, innerWidth/innerHeight, 0.01, 500);
-  camera.position.set(0, 1.5, 6);
+  // Isometric camera setup
+  const aspect = innerWidth / innerHeight;
+  const frustumSize = 4;
+  const camera = new THREE.OrthographicCamera(
+    -frustumSize * aspect / 2,
+    frustumSize * aspect / 2,
+    frustumSize / 2,
+    -frustumSize / 2,
+    0.1,
+    1000
+  );
+
+  // Isometric angle (45° from above)
+  const distance = 8;
+  const angle = Math.PI / 4; // 45 degrees
+  camera.position.set(
+    distance * Math.cos(angle),
+    distance * 0.7,
+    distance * Math.sin(angle)
+  );
+  camera.lookAt(0, 0.8, 0);
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
     alpha: false,
     powerPreference: "high-performance"
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); // Mobile optimized
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.2;
   document.body.appendChild(renderer.domElement);
 
-  // Touch-optimized controls
+  // Touch-optimized controls (adapted for orthographic)
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.minDistance = 2;
-  controls.maxDistance = 20;
-  controls.target.set(0, 1, 0);
+  controls.enableZoom = true;
+  controls.zoomSpeed = 0.5;
+  controls.target.set(0, 0.8, 0);
   controls.enablePan = true;
-  controls.panSpeed = 0.8;
-  controls.rotateSpeed = 0.6;
+  controls.panSpeed = 0.5;
+  controls.rotateSpeed = 0.5;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
     TWO: THREE.TOUCH.DOLLY_PAN
@@ -208,13 +228,13 @@
     logoZ: 0.0,
   };
 
-  // Particle shader (silhouette aware)
+  // Particle shader (isometric optimized, silhouette aware)
   const particleMat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     uniforms: {
-      uSize: { value: params.size * 1000 },
+      uSize: { value: params.size * 800 },
       uOpacity: { value: params.opacity },
       uTime: { value: 0 },
     },
@@ -223,15 +243,16 @@
       uniform float uTime;
       attribute float aW;
       varying float vW;
-      varying float vDepth;
+      varying float vY;
 
       void main(){
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vDepth = clamp((-mv.z - 2.0) / 12.0, 0.0, 1.0);
+        vY = position.y; // Height for color variation
         vW = aW;
 
-        float size = uSize / max(1.0, -mv.z);
-        size *= mix(1.0, 2.2, vW);
+        // Orthographic camera - constant size
+        float size = uSize;
+        size *= mix(1.0, 2.5, vW); // Emphasize silhouette edges
 
         gl_PointSize = size;
         gl_Position = projectionMatrix * mv;
@@ -239,20 +260,24 @@
     `,
     fragmentShader: `
       uniform float uOpacity;
-      varying float vDepth;
+      varying float vY;
       varying float vW;
 
       void main(){
         vec2 uv = gl_PointCoord - vec2(0.5);
         float d = length(uv);
         float alpha = smoothstep(0.5, 0.0, d);
-        alpha = pow(alpha, 1.4);
+        alpha = pow(alpha, 1.5);
 
-        vec3 colA = vec3(0.7, 0.8, 1.0);
-        vec3 colB = vec3(1.0, 1.0, 1.0);
-        vec3 col = mix(colA, colB, vDepth * 0.6);
-        col *= mix(1.0, 1.8, vW);
-        alpha *= mix(1.0, 1.4, vW);
+        // Tesla-inspired colors (blue-white gradient based on height)
+        vec3 colA = vec3(0.5, 0.7, 1.0);  // Soft blue
+        vec3 colB = vec3(0.95, 0.97, 1.0); // Bright white
+        float heightMix = clamp(vY / 2.0, 0.0, 1.0);
+        vec3 col = mix(colA, colB, heightMix * 0.7);
+
+        // Silhouette edges glow
+        col *= mix(1.0, 2.0, vW);
+        alpha *= mix(0.9, 1.5, vW);
 
         gl_FragColor = vec4(col, alpha * uOpacity);
       }
@@ -343,7 +368,7 @@
     return out;
   }
 
-  // Procedural Tesla car shape
+  // Procedural Tesla Model Y shape (SUV profile)
   function buildProceduralTeslaPoints(count){
     const keep = [];
     const capsuleField = (p, a, b, r) => {
@@ -354,47 +379,65 @@
     };
 
     const p = new THREE.Vector3();
-    const aBody = new THREE.Vector3(-1.8, 0.6, 0);
-    const bBody = new THREE.Vector3( 1.8, 0.6, 0);
-    const rBody = 0.65;
 
-    const aCab  = new THREE.Vector3(-0.6, 1.1, 0);
-    const bCab  = new THREE.Vector3( 1.0, 1.1, 0);
-    const rCab  = 0.45;
+    // Model Y body (larger, SUV-like)
+    const aBody = new THREE.Vector3(-1.9, 0.7, 0);
+    const bBody = new THREE.Vector3( 1.9, 0.7, 0);
+    const rBody = 0.72;
 
+    // Model Y cabin (taller, more boxy SUV cabin)
+    const aCab  = new THREE.Vector3(-0.8, 1.35, 0);
+    const bCab  = new THREE.Vector3( 1.2, 1.35, 0);
+    const rCab  = 0.55;
+
+    // Rear extended (SUV hatchback)
+    const aRear = new THREE.Vector3(-1.4, 1.1, 0);
+    const bRear = new THREE.Vector3(-0.3, 1.1, 0);
+    const rRear = 0.48;
+
+    // Wheels (Model Y positioning)
     const wheelC = [
-      new THREE.Vector3(-1.15, 0.38, 0.80),
-      new THREE.Vector3( 1.10, 0.38, 0.80),
-      new THREE.Vector3(-1.15, 0.38,-0.80),
-      new THREE.Vector3( 1.10, 0.38,-0.80),
+      new THREE.Vector3(-1.25, 0.42, 0.85),
+      new THREE.Vector3( 1.20, 0.42, 0.85),
+      new THREE.Vector3(-1.25, 0.42,-0.85),
+      new THREE.Vector3( 1.20, 0.42,-0.85),
     ];
 
     let tries = 0;
-    while(keep.length < count*3 && tries < count*20){
+    while(keep.length < count*3 && tries < count*25){
       tries++;
-      p.set(rand(-2.2, 2.2), rand(0.05, 1.9), rand(-1.1, 1.1));
+      p.set(rand(-2.3, 2.3), rand(0.05, 2.2), rand(-1.15, 1.15));
+
       const dBody = capsuleField(p, aBody, bBody, rBody);
       const dCab  = capsuleField(p, aCab,  bCab,  rCab);
-      let d = Math.min(dBody, dCab);
+      const dRear = capsuleField(p, aRear, bRear, rRear);
+      let d = Math.min(dBody, Math.min(dCab, dRear));
 
+      // Wheel arches
       let arch = 0;
       for(const wc of wheelC){
         const dist = p.distanceTo(wc);
-        arch += Math.exp(-dist*dist*5.5);
+        arch += Math.exp(-dist*dist*4.5);
       }
-      const density = THREE.MathUtils.clamp(1.0 - arch*0.6, 0.08, 1.0);
+      const density = THREE.MathUtils.clamp(1.0 - arch*0.7, 0.05, 1.0);
 
       if(d < 0 && Math.random() < density){
-        const t = THREE.MathUtils.clamp((p.x + 2.2)/4.4, 0, 1);
+        const t = THREE.MathUtils.clamp((p.x + 2.3)/4.6, 0, 1);
         const smoothT = t*t*(3-2*t);
-        p.z *= THREE.MathUtils.lerp(0.70, 1.0, smoothT);
-        p.y += 0.08 * Math.sin((p.x+1.9)*1.2) * Math.exp(-p.z*p.z*1.5);
+
+        // SUV body taper (wider at bottom, sleeker at top)
+        const heightFactor = THREE.MathUtils.clamp(p.y / 2.0, 0, 1);
+        p.z *= THREE.MathUtils.lerp(0.75, 1.0, smoothT) * THREE.MathUtils.lerp(1.05, 0.92, heightFactor);
+
+        // Slight hood slope
+        if(p.x > 0.8) p.y += 0.05 * Math.sin((p.x - 0.8) * 2.5) * Math.exp(-p.z*p.z*1.2);
+
         keep.push(p.x, p.y, p.z);
       }
     }
 
     const arr = new Float32Array(keep);
-    centerAndScalePositions(arr, 1.0);
+    centerAndScalePositions(arr, 1.2); // Slightly larger
     return arr;
   }
 
@@ -546,22 +589,35 @@
     params.autoRotate = false;
     btnRotate.classList.remove("active");
     root.rotation.set(0,0,0);
-    camera.position.set(0, 1.5, 6);
-    controls.target.set(0, 1.0, 0);
+
+    // Reset to isometric view
+    const distance = 8;
+    const angle = Math.PI / 4;
+    camera.position.set(
+      distance * Math.cos(angle),
+      distance * 0.7,
+      distance * Math.sin(angle)
+    );
+    controls.target.set(0, 0.8, 0);
     controls.update();
     showInfo("リセット完了");
   });
 
-  // Resize handler
+  // Resize handler (orthographic camera)
   window.addEventListener("resize", ()=>{
-    camera.aspect = innerWidth/innerHeight;
+    const aspect = innerWidth / innerHeight;
+    const frustumSize = 4;
+    camera.left = -frustumSize * aspect / 2;
+    camera.right = frustumSize * aspect / 2;
+    camera.top = frustumSize / 2;
+    camera.bottom = -frustumSize / 2;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
     composer.setSize(innerWidth, innerHeight);
   });
 
   // Initial welcome message
-  setTimeout(()=>showInfo("タッチで回転・ズーム", 3000), 500);
+  setTimeout(()=>showInfo("Tesla Model Y - アイソメトリックビュー", 3000), 500);
 </script>
 </body>
 </html>
