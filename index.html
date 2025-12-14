@@ -1,873 +1,925 @@
-<!DOCTYPE html>
-
+<!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D プラネタリギヤ - 物理正確版</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Tesla Particle Viewer (Logo + Silhouette) - Three.js</title>
   <style>
-    *{margin:0;padding:0;box-sizing:border-box}
-    body{
-      font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;
-      background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
-      color:#fff; overflow:hidden;
+    :root{
+      --bg0:#05060a;
+      --bg1:#0b1030;
+      --fg:#e8ecff;
+      --muted:#aab3ff;
+      --panel: rgba(10, 12, 24, .62);
+      --border: rgba(255,255,255,.10);
+      --danger: #ff5370;
+      --ok: #2ce2a2;
     }
-    #canvas-container{width:100vw;height:100vh;position:relative}
-    .ui{position:absolute;inset:0;pointer-events:none}
-    .panel{
-      position:absolute;top:20px;left:20px;width:380px;max-height:calc(100vh - 40px);
-      overflow-y:auto;pointer-events:auto;background:rgba(0,0,0,.85);
-      backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);
-      border-radius:16px;padding:18px;box-shadow:0 12px 36px rgba(0,0,0,.5);
-    }
-    .title{font-weight:900;font-size:18px;margin-bottom:6px;color:#ffd700}
-    .sub{opacity:.85;font-size:13px;line-height:1.4;margin-bottom:14px}
-    .group{
-      border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;margin-bottom:12px;
-      background:rgba(255,255,255,.05);
-    }
-    .group h3{font-size:14px;color:#4af2a1;margin-bottom:10px;font-weight:800}
-    label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;margin-bottom:8px}
-    .val{color:#ffd700;font-weight:900;min-width:80px;text-align:right}
-    input[type="range"]{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.25);outline:none;-webkit-appearance:none}
-    input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#ffd700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#ffd700;cursor:pointer;border:none;box-shadow:0 2px 6px rgba(0,0,0,.4)}
-    .checks{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
-    .chk{display:flex;align-items:center;gap:6px;font-size:12px}
-    .chk input{width:16px;height:16px;cursor:pointer}
-    .presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .preset{
-      text-align:center;background:rgba(255,255,255,.15);
-      border:1px solid rgba(255,255,255,.2);
-      border-radius:10px;padding:12px 8px;font-weight:800;font-size:12px;
-      cursor:pointer;color:#fff;transition:.2s;
-    }
-    .preset:hover{background:rgba(255,255,255,.25);transform:translateY(-2px)}
-    .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-    button{
-      border:none;border-radius:10px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;color:#fff;
-      box-shadow:0 6px 16px rgba(0,0,0,.3);transition:.2s;
-    }
-    button:hover{transform:translateY(-2px);filter:brightness(1.1)}
-    .b1{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
-    .b2{background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%)}
-    .right{
-      position:absolute;top:20px;right:20px;width:340px;pointer-events:auto;
-      background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
-      border:1px solid rgba(255,255,255,.15);
-      border-radius:16px;padding:18px;box-shadow:0 12px 36px rgba(0,0,0,.5);
-    }
-    .badge{
-      display:inline-block;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:900;margin-bottom:12px;
-      background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
+    html,body{height:100%;margin:0;background:radial-gradient(1200px 900px at 20% 10%, var(--bg1), var(--bg0)); color:var(--fg); overflow:hidden;}
+    canvas{display:block;}
+    #hud{
+      position:fixed; inset:18px 18px auto 18px;
+      display:flex; gap:12px; align-items:stretch; pointer-events:none;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", sans-serif;
+      letter-spacing:.2px;
     }
     .card{
-      border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.05);
+      pointer-events:auto;
+      min-width: 300px;
+      padding:14px 14px 12px 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
     }
-    .k{font-size:12px;opacity:.8;margin-bottom:4px}
-    .v{font-size:20px;font-weight:900;color:#ffd700}
-    .formula{
-      background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);
-      border-radius:8px;padding:10px;margin-top:10px;font-size:12px;
-      font-family:'Courier New',monospace;color:#ffd700;
+    .title{
+      font-weight:800; font-size:14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;
     }
+    .badge{
+      font-size:11px; padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.16);
+      background: rgba(120,140,255,.10);
+      color: var(--muted);
+    }
+    .row{display:flex; gap:10px; margin-top:10px; flex-wrap:wrap;}
+    button{
+      appearance:none; border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color:var(--fg);
+      padding:8px 10px; border-radius:12px;
+      font-weight:700; font-size:12px;
+      cursor:pointer;
+      transition: transform .06s ease, background .2s ease, border-color .2s ease;
+    }
+    button:hover{ background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.20); }
+    button:active{ transform: translateY(1px) scale(.99); }
+    button.primary{
+      border-color: rgba(120,140,255,.45);
+      background: rgba(120,140,255,.14);
+      box-shadow: 0 0 0 1px rgba(120,140,255,.12), 0 16px 40px rgba(50,70,255,.10);
+    }
+    .hint{
+      margin-top:10px; font-size:12px; line-height:1.45;
+      color: rgba(232,236,255,.78);
+    }
+    .hint b{ color: rgba(232,236,255,.95); }
+    #drop{
+      position:fixed; inset:auto 18px 18px 18px;
+      display:flex; justify-content:space-between; gap:12px; align-items:center;
+      pointer-events:none;
+    }
+    .dropzone{
+      pointer-events:auto;
+      flex:1;
+      padding:12px 14px;
+      background: var(--panel);
+      border:1px dashed rgba(120,140,255,.35);
+      border-radius:14px;
+      color: rgba(232,236,255,.85);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+    }
+    .dropzone small{ color: rgba(232,236,255,.60); }
+    .kbd{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; padding:2px 6px; border-radius:8px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.05); }
+    #toast{
+      position:fixed; right:18px; top:18px;
+      max-width:min(420px, calc(100vw - 36px));
+      padding:10px 12px;
+      border-radius:14px;
+      background: rgba(10, 12, 24, .72);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow: 0 18px 60px rgba(0,0,0,.35);
+      backdrop-filter: blur(10px);
+      font-size:12px;
+      opacity:0; transform: translateY(-6px);
+      transition: opacity .2s ease, transform .2s ease;
+      pointer-events:none;
+    }
+    #toast.show{opacity:1; transform: translateY(0);}
+    #toast .ok{ color: var(--ok); font-weight:800;}
+    #toast .bad{ color: var(--danger); font-weight:800;}
   </style>
 </head>
 <body>
-  <div id="canvas-container"></div>
+  <div id="hud">
+    <div class="card">
+      <div class="title">
+        Tesla Particle Viewer
+        <span class="badge">Silhouette Boost</span>
+        <span class="badge">Tesla Logo Attractor</span>
+        <span class="badge">Orbit / Zoom / Pan</span>
+      </div>
 
-  <div class="ui">
-    <div class="panel">
-      <div class="title">⚙️ 3D プラネタリギヤ - 物理正確版</div>
-      <div class="sub">インボリュート歯形 / Willis式運動学 / 完全噛み合い保証</div>
+      <div class="row">
+        <button id="btnExplode" class="primary">収束 ⇄ 拡散</button>
+        <button id="btnAuto" class="primary">自動回転</button>
+        <button id="btnReset">リセット</button>
+        <button id="btnShot">スクショ</button>
+      </div>
 
-```
-  <div class="group">
-    <h3>📐 ギヤ仕様</h3>
-    <div style="font-size:12px;opacity:.9;line-height:1.6">
-      • サン歯数: <strong style="color:#ffd700">Zs = 20</strong><br>
-      • プラネット歯数: <strong style="color:#ffd700">Zp = 20</strong><br>
-      • リング歯数: <strong style="color:#ffd700">Zr = 60</strong><br>
-      • モジュール: <strong style="color:#ffd700">m = 0.10</strong><br>
-      • 圧力角: <strong style="color:#ffd700">α = 20°</strong>
-    </div>
-    <div class="formula">
-      Willis式: (ωs·Zs + ωr·Zr) = ωc·(Zs + Zr)
-    </div>
-  </div>
-
-  <div class="group">
-    <h3>🎮 動作モード</h3>
-    <div class="presets">
-      <button class="preset" onclick="setMode('reduction')">減速<br>(Sun入力)</button>
-      <button class="preset" onclick="setMode('increase')">増速<br>(Ring入力)</button>
-      <button class="preset" onclick="setMode('direct')">直結<br>(同速)</button>
-      <button class="preset" onclick="setMode('reverse')">逆転<br>(Car入力)</button>
+      <div class="hint">
+        <b>操作:</b> ドラッグ=回転 / ホイール=ズーム / 右ドラッグ=パン<br/>
+        <b>DnD:</b> <span class="kbd">.glb</span> / <span class="kbd">.gltf</span> をドロップ → 形状を粒子化 + 輪郭強調<br/>
+        <b>キー:</b> <span class="kbd">G</span>=GUI表示切替 / <span class="kbd">H</span>=HUD切替
+      </div>
     </div>
   </div>
 
-  <div class="group">
-    <h3>🎚️ 速度制御（RPM）</h3>
-
-    <div style="margin:12px 0">
-      <label>サンギヤ <span class="val" id="sunTxt">60.0</span></label>
-      <input id="sunSlider" type="range" min="-200" max="200" step="0.1" value="60">
-      <div class="checks"><div class="chk"><input id="sunLock" type="checkbox">固定</div></div>
-    </div>
-
-    <div style="margin:12px 0">
-      <label>リングギヤ <span class="val" id="ringTxt">0.0</span></label>
-      <input id="ringSlider" type="range" min="-200" max="200" step="0.1" value="0">
-      <div class="checks"><div class="chk"><input id="ringLock" type="checkbox" checked>固定</div></div>
-    </div>
-
-    <div style="margin:12px 0">
-      <label>キャリア <span class="val" id="carTxt">0.0</span></label>
-      <input id="carSlider" type="range" min="-200" max="200" step="0.1" value="0">
-      <div class="checks"><div class="chk"><input id="carLock" type="checkbox">固定</div></div>
+  <div id="drop">
+    <div class="dropzone" id="dropzone">
+      <div>
+        <div style="font-weight:800;">モデルをここにドロップ（GLB/GLTF）</div>
+        <small>未指定なら内蔵の“Teslaっぽい”車体形状で表示（輪郭強調はモデル時に最適）</small>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span class="kbd">G</span><span style="opacity:.75;">GUI</span>
+        <span class="kbd">H</span><span style="opacity:.75;">HUD</span>
+      </div>
     </div>
   </div>
 
-  <div class="group">
-    <h3>🎨 表示設定</h3>
-    <div class="checks">
-      <div class="chk"><input id="showCarrier" type="checkbox" checked>キャリア</div>
-      <div class="chk"><input id="showAxes" type="checkbox" checked>軸</div>
-      <div class="chk"><input id="showWireframe" type="checkbox">ワイヤーフレーム</div>
-      <div class="chk"><input id="autoRotate" type="checkbox">自動回転</div>
-    </div>
+  <div id="toast"></div>
 
-    <div class="btns">
-      <button class="b1" onclick="toggleAnim()" id="toggleBtn">⏸️ 停止</button>
-      <button class="b2" onclick="resetView()">📷 視点リセット</button>
-    </div>
-  </div>
-</div>
+<script type="module">
+  import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+  import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+  import { EffectComposer } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js";
+  import { RenderPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/RenderPass.js";
+  import { UnrealBloomPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/UnrealBloomPass.js";
+  import { AfterimagePass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/AfterimagePass.js";
+  import { OutputPass } from "https://unpkg.com/three@0.160.0/examples/jsm/postprocessing/OutputPass.js";
+  import { GLTFLoader } from "https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js";
+  import { GUI } from "https://unpkg.com/three@0.160.0/examples/jsm/libs/lil-gui.module.min.js";
 
-<div class="right">
-  <div class="badge" id="modeBadge">減速モード</div>
-  
-  <div class="card"><div class="k">サンギヤ回転数</div><div class="v" id="statSun">60.0 RPM</div></div>
-  <div class="card"><div class="k">プラネット自転（対キャリア）</div><div class="v" id="statPlanet">0.0 RPM</div></div>
-  <div class="card"><div class="k">リングギヤ回転数</div><div class="v" id="statRing">0.0 RPM</div></div>
-  <div class="card"><div class="k">キャリア回転数</div><div class="v" id="statCar">15.0 RPM</div></div>
-  <div class="card"><div class="k">減速比（入力/出力）</div><div class="v" id="statRatio">4.00:1</div></div>
-  <div class="card"><div class="k">トルク増幅率</div><div class="v" id="statTorque">4.00x</div></div>
-  
-  <div class="formula" style="margin-top:14px">
-    検証: ωs·20 + ωr·60 = ωc·80<br>
-    <span id="willisCheck" style="color:#4af2a1">✓ 成立</span>
-  </div>
-</div>
-```
+  // --------------------------
+  // HUD toast
+  // --------------------------
+  const toastEl = document.getElementById("toast");
+  function toast(msg, ok=true){
+    toastEl.innerHTML = `<span class="${ok?'ok':'bad'}">${ok?'OK':'ERR'}</span> ${msg}`;
+    toastEl.classList.add("show");
+    clearTimeout(toastEl._t);
+    toastEl._t = setTimeout(()=>toastEl.classList.remove("show"), 2400);
+  }
 
-  </div>
+  // --------------------------
+  // Scene / Renderer
+  // --------------------------
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x060814, 0.045);
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.01, 500);
+  camera.position.set(0, 1.2, 5.2);
 
-  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:false, preserveDrawingBuffer:true });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  document.body.appendChild(renderer.domElement);
 
-  <script>
-    // ============================================================
-    // ギヤパラメータ（物理的に正確）
-    // ============================================================
-    const Zs = 20;  // サン歯数
-    const Zp = 20;  // プラネット歯数
-    const Zr = 60;  // リング歯数（= Zs + 2·Zp）
+  // Controls
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.minDistance = 1.2;
+  controls.maxDistance = 30;
+  controls.target.set(0, 0.8, 0);
 
-    const module = 0.10;  // モジュール
-    const pressureAngle = 20 * Math.PI / 180;  // 圧力角（rad）
-    
-    // ピッチ円半径（物理的に正確）
-    const rSun = (module * Zs) / 2;      // 1.0
-    const rPlanet = (module * Zp) / 2;   // 1.0
-    const rRing = (module * Zr) / 2;     // 3.0
-    
-    // 中心間距離（完全噛み合い条件）
-    const centerDistance = rSun + rPlanet;  // 2.0
-    
-    // 歯丈係数（JIS標準）
-    const addendum = 1.00 * module;      // 歯先高さ
-    const dedendum = 1.25 * module;      // 歯底高さ
-    
-    const gearThickness = 0.35;
-    const numPlanets = 3;
+  // Lights
+  const key = new THREE.DirectionalLight(0xb9c6ff, 0.55);
+  key.position.set(4, 6, 2);
+  scene.add(key);
+  scene.add(new THREE.AmbientLight(0x8aa0ff, 0.14));
 
-    // ============================================================
-    // 状態変数
-    // ============================================================
-    let sunSpeed = 60;    // RPM
-    let ringSpeed = 0;    // RPM
-    let carrierSpeed = 0; // RPM
-    
-    let sunLocked = false;
-    let ringLocked = true;
-    let carrierLocked = false;
-    
-    let sunAngle = 0;
-    let ringAngle = 0;
-    let carrierAngle = 0;
-    
-    let running = true;
-    let lastChanged = "sun";
+  // Ground plane (depth cue)
+  const ground = new THREE.Mesh(
+    new THREE.PlaneGeometry(80, 80),
+    new THREE.MeshStandardMaterial({
+      color: 0x070913,
+      roughness: 0.95,
+      metalness: 0.05
+    })
+  );
+  ground.rotation.x = -Math.PI/2;
+  ground.position.y = 0;
+  scene.add(ground);
 
-    // ============================================================
-    // Three.js オブジェクト
-    // ============================================================
-    let scene, camera, renderer, controls, axesHelper;
-    let sunMesh, ringMesh, carrierGroup;
-    let planetMeshes = [];
-    let carrierArms = [];
-    let wireframeObjects = [];
+  // --------------------------
+  // Postprocessing
+  // --------------------------
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.9, 0.35, 0.2);
+  composer.addPass(bloom);
+  const afterimage = new AfterimagePass(0.88);
+  composer.addPass(afterimage);
+  composer.addPass(new OutputPass());
 
-    // ============================================================
-    // インボリュート歯形生成（物理的に正確）
-    // ============================================================
-    function involutePoint(baseRadius, t) {
-      return new THREE.Vector2(
-        baseRadius * (Math.cos(t) + t * Math.sin(t)),
-        baseRadius * (Math.sin(t) - t * Math.cos(t))
-      );
-    }
+  // --------------------------
+  // Core containers
+  // --------------------------
+  const root = new THREE.Group();
+  scene.add(root);
 
-    function tFromRadius(baseRadius, radius) {
-      const ratio = radius / baseRadius;
-      return Math.sqrt(Math.max(0, ratio * ratio - 1));
-    }
+  // particle buffers
+  let points = null;
+  let basePositions = null;    // Float32Array
+  let targetPositions = null;  // Float32Array
+  let scatterPositions = null; // Float32Array
+  let velocities = null;       // Float32Array
 
-    function buildInvoluteGearProfile(pitchRadius, numTeeth, isInternal = false) {
-      const baseRadius = pitchRadius * Math.cos(pressureAngle);
-      const outerRadius = pitchRadius + addendum;
-      const rootRadius = Math.max(baseRadius * 0.5, pitchRadius - dedendum);
-      
-      const angularPitch = 2 * Math.PI / numTeeth;
-      const toothThickness = Math.PI * module / 2;  // ピッチ円上の歯厚
-      
-      const shape = new THREE.Shape();
-      
-      if (isInternal) {
-        // 内歯車（リングギヤ）
-        const innerRadius = pitchRadius - addendum;
-        const valleyRadius = pitchRadius + dedendum;
-        
-        // 外周円
-        for (let i = 0; i <= 64; i++) {
-          const angle = (i / 64) * 2 * Math.PI;
-          const x = Math.cos(angle) * valleyRadius;
-          const y = Math.sin(angle) * valleyRadius;
-          if (i === 0) shape.moveTo(x, y);
-          else shape.lineTo(x, y);
-        }
-        
-        // 内側の歯（ホール）
-        const hole = new THREE.Path();
-        const startAngle = 0;
-        hole.moveTo(Math.cos(startAngle) * innerRadius, Math.sin(startAngle) * innerRadius);
-        
-        for (let i = 0; i < numTeeth; i++) {
-          const baseAngle = i * angularPitch;
-          
-          // 歯底円弧
-          const dedAng1 = baseAngle - angularPitch * 0.45;
-          const dedAng2 = baseAngle - angularPitch * 0.20;
-          for (let j = 0; j <= 6; j++) {
-            const a = dedAng1 + (dedAng2 - dedAng1) * (j / 6);
-            hole.lineTo(Math.cos(a) * pitchRadius, Math.sin(a) * pitchRadius);
-          }
-          
-          // 左フランク（簡略インボリュート）
-          const t0 = tFromRadius(baseRadius, Math.max(baseRadius, innerRadius));
-          const t1 = tFromRadius(baseRadius, pitchRadius);
-          for (let j = 0; j <= 8; j++) {
-            const t = t0 + (t1 - t0) * (j / 8);
-            const p = involutePoint(baseRadius, t);
-            const angle = Math.atan2(p.y, p.x) + baseAngle - angularPitch * 0.20;
-            hole.lineTo(Math.cos(angle) * p.length(), Math.sin(angle) * p.length());
-          }
-          
-          // 歯先円弧
-          const tipAng1 = baseAngle - angularPitch * 0.05;
-          const tipAng2 = baseAngle + angularPitch * 0.05;
-          for (let j = 0; j <= 6; j++) {
-            const a = tipAng1 + (tipAng2 - tipAng1) * (j / 6);
-            hole.lineTo(Math.cos(a) * innerRadius, Math.sin(a) * innerRadius);
-          }
-          
-          // 右フランク
-          for (let j = 8; j >= 0; j--) {
-            const t = t0 + (t1 - t0) * (j / 8);
-            const p = involutePoint(baseRadius, t);
-            const angle = Math.atan2(p.y, p.x) + baseAngle + angularPitch * 0.20;
-            hole.lineTo(Math.cos(angle) * p.length(), Math.sin(angle) * p.length());
-          }
-          
-          // 次の歯底へ
-          const dedAng3 = baseAngle + angularPitch * 0.20;
-          const dedAng4 = baseAngle + angularPitch * 0.55;
-          for (let j = 0; j <= 6; j++) {
-            const a = dedAng3 + (dedAng4 - dedAng3) * (j / 6);
-            hole.lineTo(Math.cos(a) * pitchRadius, Math.sin(a) * pitchRadius);
-          }
-        }
-        
-        shape.holes.push(hole);
-        
-      } else {
-        // 外歯車（サンギヤ、プラネットギヤ）
-        let firstPoint = null;
-        
-        for (let i = 0; i < numTeeth; i++) {
-          const baseAngle = i * angularPitch;
-          
-          // 歯底の開始点
-          const rootAng1 = baseAngle - angularPitch * 0.55;
-          const rootStart = new THREE.Vector2(
-            Math.cos(rootAng1) * rootRadius,
-            Math.sin(rootAng1) * rootRadius
-          );
-          
-          if (i === 0) {
-            shape.moveTo(rootStart.x, rootStart.y);
-            firstPoint = rootStart;
-          } else {
-            shape.lineTo(rootStart.x, rootStart.y);
-          }
-          
-          // 歯底円弧
-          const rootAng2 = baseAngle - angularPitch * 0.25;
-          for (let j = 1; j <= 6; j++) {
-            const a = rootAng1 + (rootAng2 - rootAng1) * (j / 6);
-            shape.lineTo(Math.cos(a) * rootRadius, Math.sin(a) * rootRadius);
-          }
-          
-          // 左フランク（インボリュート曲線）
-          const tStart = tFromRadius(baseRadius, Math.max(baseRadius, rootRadius));
-          const tEnd = tFromRadius(baseRadius, outerRadius);
-          
-          for (let j = 0; j <= 10; j++) {
-            const t = tStart + (tEnd - tStart) * (j / 10);
-            const p = involutePoint(baseRadius, t);
-            const offsetAngle = baseAngle - toothThickness / (2 * pitchRadius);
-            const angle = Math.atan2(p.y, p.x) + offsetAngle;
-            const r = p.length();
-            shape.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
-          }
-          
-          // 歯先円弧
-          const tipAngLeft = Math.atan2(
-            involutePoint(baseRadius, tEnd).y,
-            involutePoint(baseRadius, tEnd).x
-          ) + baseAngle - toothThickness / (2 * pitchRadius);
-          
-          const tipAngRight = baseAngle + toothThickness / (2 * pitchRadius) - 
-                              Math.atan2(
-                                involutePoint(baseRadius, tEnd).y,
-                                involutePoint(baseRadius, tEnd).x
-                              );
-          
-          for (let j = 1; j <= 8; j++) {
-            const a = tipAngLeft + (tipAngRight - tipAngLeft) * (j / 8);
-            shape.lineTo(Math.cos(a) * outerRadius, Math.sin(a) * outerRadius);
-          }
-          
-          // 右フランク（インボリュート曲線・逆順）
-          for (let j = 10; j >= 0; j--) {
-            const t = tStart + (tEnd - tStart) * (j / 10);
-            const p = involutePoint(baseRadius, t);
-            const offsetAngle = baseAngle + toothThickness / (2 * pitchRadius);
-            const angle = Math.atan2(p.y, p.x) + offsetAngle;
-            const r = p.length();
-            shape.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
-          }
-          
-          // 次の歯底へ
-          const rootAng3 = baseAngle + angularPitch * 0.25;
-          const rootAng4 = baseAngle + angularPitch * 0.55;
-          for (let j = 1; j <= 6; j++) {
-            const a = rootAng3 + (rootAng4 - rootAng3) * (j / 6);
-            shape.lineTo(Math.cos(a) * rootRadius, Math.sin(a) * rootRadius);
-          }
-        }
-        
-        if (firstPoint) {
-          shape.lineTo(firstPoint.x, firstPoint.y);
-        }
+  // silhouette + logo
+  let normals = null;          // Float32Array | null
+  let aW = null;               // Float32Array silhouette weight per particle
+  let logoTargets = null;      // Float32Array
+  let logoCount = 0;
+
+  // --------------------------
+  // Params
+  // --------------------------
+  const params = {
+    // particle look
+    count: 120000,
+    size: 0.012,
+    opacity: 1.0,
+    colorA: "#b8c5ff",
+    colorB: "#ffffff",
+    colorMix: 0.45,
+
+    // motion
+    explode: 0.0,
+    explodeRadius: 2.6,
+    spring: 0.08,
+    damping: 0.84,
+    noise: 0.18,
+    flow: 0.8,
+    edgePull: 0.14,      // silhouette particles push outward a bit (tight silhouette)
+
+    // auto rotate
+    autoRotate: false,
+    autoRotateSpeed: 0.25,
+
+    // Tesla logo attractor
+    logo: 0.65,          // 0..1 (default ON)
+    logoSize: 0.60,
+    logoLift: 1.18,
+    logoX: -0.75,        // forward on hood (tune per model)
+    logoZ: 0.00,
+
+    // FX
+    bloomStrength: 0.9,
+    bloomRadius: 0.35,
+    bloomThreshold: 0.2,
+    trail: 0.88,
+    exposure: 1.05,
+
+    // UI
+    showHUD: true,
+  };
+
+  // --------------------------
+  // Particle material (silhouette-aware)
+  // --------------------------
+  const particleMat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uSize: { value: params.size * 1000 },
+      uOpacity: { value: params.opacity },
+      uColorA: { value: new THREE.Color(params.colorA) },
+      uColorB: { value: new THREE.Color(params.colorB) },
+      uColorMix: { value: params.colorMix },
+      uTime: { value: 0 },
+    },
+    vertexShader: `
+      uniform float uSize;
+      uniform float uTime;
+      attribute float aW;
+      varying float vW;
+      varying float vDepth;
+
+      void main(){
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vDepth = clamp((-mv.z - 1.0) / 14.0, 0.0, 1.0);
+        vW = aW;
+
+        float size = uSize / max(1.0, -mv.z);
+        size *= mix(1.0, 2.0, vW);
+
+        gl_PointSize = size;
+        gl_Position = projectionMatrix * mv;
       }
-      
-      return shape;
-    }
+    `,
+    fragmentShader: `
+      uniform float uOpacity;
+      uniform vec3 uColorA;
+      uniform vec3 uColorB;
+      uniform float uColorMix;
+      varying float vDepth;
+      varying float vW;
 
-    function extrudeGear(shape) {
-      const geometry = new THREE.ExtrudeGeometry(shape, {
-        depth: gearThickness,
-        bevelEnabled: true,
-        bevelThickness: 0.02,
-        bevelSize: 0.02,
-        bevelSegments: 3
-      });
-      geometry.rotateX(Math.PI / 2);
-      geometry.center();
-      geometry.computeVertexNormals();
-      return geometry;
-    }
+      void main(){
+        vec2 uv = gl_PointCoord - vec2(0.5);
+        float d = length(uv);
+        float alpha = smoothstep(0.5, 0.0, d);
+        alpha = pow(alpha, 1.35);
 
-    // ============================================================
-    // シーン初期化
-    // ============================================================
-    function initScene() {
-      const container = document.getElementById("canvas-container");
-      
-      scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0a0a1a);
-      scene.fog = new THREE.Fog(0x0a0a1a, 15, 60);
-      
-      camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
-      camera.position.set(6, 4, 8);
-      
-      renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(innerWidth, innerHeight);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      container.appendChild(renderer.domElement);
-      
-      // ライティング
-      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-      
-      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
-      keyLight.position.set(8, 12, 8);
-      keyLight.castShadow = true;
-      keyLight.shadow.mapSize.set(2048, 2048);
-      keyLight.shadow.camera.near = 0.5;
-      keyLight.shadow.camera.far = 50;
-      keyLight.shadow.camera.left = -10;
-      keyLight.shadow.camera.right = 10;
-      keyLight.shadow.camera.top = 10;
-      keyLight.shadow.camera.bottom = -10;
-      scene.add(keyLight);
-      
-      const fillLight = new THREE.DirectionalLight(0x66aaff, 0.4);
-      fillLight.position.set(-6, 6, -6);
-      scene.add(fillLight);
-      
-      const rimLight = new THREE.PointLight(0xffd700, 0.9, 35);
-      rimLight.position.set(0, 8, 0);
-      scene.add(rimLight);
-      
-      // グリッド
-      const grid = new THREE.GridHelper(24, 24, 0x444444, 0x222222);
-      grid.position.y = -2.5;
-      scene.add(grid);
-      
-      // 軸ヘルパー
-      axesHelper = new THREE.AxesHelper(5);
-      scene.add(axesHelper);
-      
-      // コントロール
-      controls = new THREE.OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
-      controls.dampingFactor = 0.05;
-      controls.minDistance = 4;
-      controls.maxDistance = 25;
-      
-      buildGears();
-      
-      window.addEventListener("resize", () => {
-        camera.aspect = innerWidth / innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(innerWidth, innerHeight);
-      });
-    }
+        vec3 col = mix(uColorA, uColorB, mix(uColorMix, 1.0, vDepth));
+        col *= mix(1.0, 1.7, vW);
+        alpha *= mix(1.0, 1.3, vW);
 
-    // ============================================================
-    // ギヤメッシュ構築
-    // ============================================================
-    function buildGears() {
-      // クリーンアップ
-      if (sunMesh) scene.remove(sunMesh);
-      if (ringMesh) scene.remove(ringMesh);
-      if (carrierGroup) scene.remove(carrierGroup);
-      planetMeshes = [];
-      carrierArms = [];
-      wireframeObjects = [];
-      
-      // サンギヤ
-      const sunShape = buildInvoluteGearProfile(rSun, Zs, false);
-      const sunGeo = extrudeGear(sunShape);
-      sunMesh = new THREE.Mesh(
-        sunGeo,
-        new THREE.MeshStandardMaterial({
-          color: 0xff6b6b,
-          metalness: 0.4,
-          roughness: 0.3
-        })
-      );
-      sunMesh.castShadow = true;
-      sunMesh.receiveShadow = true;
-      scene.add(sunMesh);
-      
-      // サンギヤのワイヤーフレーム
-      const sunWire = new THREE.LineSegments(
-        new THREE.EdgesGeometry(sunGeo),
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })
-      );
-      sunMesh.add(sunWire);
-      wireframeObjects.push(sunWire);
-      
-      // リングギヤ
-      const ringShape = buildInvoluteGearProfile(rRing, Zr, true);
-      const ringGeo = extrudeGear(ringShape);
-      ringMesh = new THREE.Mesh(
-        ringGeo,
-        new THREE.MeshStandardMaterial({
-          color: 0x8b4789,
-          metalness: 0.35,
-          roughness: 0.35,
-          side: THREE.DoubleSide
-        })
-      );
-      ringMesh.castShadow = true;
-      ringMesh.receiveShadow = true;
-      scene.add(ringMesh);
-      
-      const ringWire = new THREE.LineSegments(
-        new THREE.EdgesGeometry(ringGeo),
-        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })
-      );
-      ringMesh.add(ringWire);
-      wireframeObjects.push(ringWire);
-      
-      // キャリアとプラネットギヤ
-      carrierGroup = new THREE.Group();
-      scene.add(carrierGroup);
-      
-      const planetShape = buildInvoluteGearProfile(rPlanet, Zp, false);
-      const planetGeo = extrudeGear(planetShape);
-      
-      for (let i = 0; i < numPlanets; i++) {
-        const angle = (i / numPlanets) * 2 * Math.PI;
-        
-        // プラネットギヤ
-        const planet = new THREE.Mesh(
-          planetGeo,
-          new THREE.MeshStandardMaterial({
-            color: 0x4a9eff,
-            metalness: 0.4,
-            roughness: 0.3
-          })
-        );
-        planet.position.set(
-          Math.cos(angle) * centerDistance,
-          0,
-          Math.sin(angle) * centerDistance
-        );
-        planet.castShadow = true;
-        planet.receiveShadow = true;
-        carrierGroup.add(planet);
-        planetMeshes.push(planet);
-        
-        const planetWire = new THREE.LineSegments(
-          new THREE.EdgesGeometry(planetGeo),
-          new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })
-        );
-        planet.add(planetWire);
-        wireframeObjects.push(planetWire);
-        
-        // キャリアアーム
-        const armGeo = new THREE.BoxGeometry(centerDistance * 2.2, 0.10, 0.15);
-        const arm = new THREE.Mesh(
-          armGeo,
-          new THREE.MeshStandardMaterial({
-            color: 0x4af2a1,
-            metalness: 0.2,
-            roughness: 0.4,
-            transparent: true,
-            opacity: 0.9
-          })
-        );
-        arm.rotation.y = angle;
-        arm.castShadow = true;
-        carrierGroup.add(arm);
-        carrierArms.push(arm);
+        gl_FragColor = vec4(col, alpha * uOpacity);
       }
-      
-      // キャリア中心ハブ
-      const hub = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.25, 0.25, gearThickness * 1.2, 24),
-        new THREE.MeshStandardMaterial({
-          color: 0x4af2a1,
-          metalness: 0.3,
-          roughness: 0.4
-        })
-      );
-      hub.rotation.x = Math.PI / 2;
-      hub.castShadow = true;
-      carrierGroup.add(hub);
-      carrierArms.push(hub);
+    `
+  });
+
+  function disposePoints(){
+    if(!points) return;
+    points.geometry.dispose();
+    points.material.dispose();
+    root.remove(points);
+    points = null;
+    basePositions = targetPositions = scatterPositions = velocities = null;
+    normals = null;
+    aW = null;
+    logoTargets = null;
+    logoCount = 0;
+  }
+
+  // --------------------------
+  // Helpers
+  // --------------------------
+  const rand = (a,b)=> a + Math.random()*(b-a);
+
+  function smoothstep01(x){
+    x = THREE.MathUtils.clamp(x,0,1);
+    return x*x*(3-2*x);
+  }
+
+  function centerAndScalePositions(arr, targetRadius=1.0){
+    let minX=Infinity,minY=Infinity,minZ=Infinity;
+    let maxX=-Infinity,maxY=-Infinity,maxZ=-Infinity;
+    for(let i=0;i<arr.length;i+=3){
+      const x=arr[i], y=arr[i+1], z=arr[i+2];
+      minX=Math.min(minX,x); minY=Math.min(minY,y); minZ=Math.min(minZ,z);
+      maxX=Math.max(maxX,x); maxY=Math.max(maxY,y); maxZ=Math.max(maxZ,z);
+    }
+    const cx=(minX+maxX)/2, cy=(minY+maxY)/2, cz=(minZ+maxZ)/2;
+    let maxR=0;
+    for(let i=0;i<arr.length;i+=3){
+      const x=arr[i]-cx, y=arr[i+1]-cy, z=arr[i+2]-cz;
+      maxR = Math.max(maxR, Math.sqrt(x*x+y*y+z*z));
+    }
+    const s = (maxR>0) ? (targetRadius/maxR) : 1;
+    for(let i=0;i<arr.length;i+=3){
+      arr[i]   = (arr[i]-cx)*s;
+      arr[i+1] = (arr[i+1]-cy)*s + 0.9;
+      arr[i+2] = (arr[i+2]-cz)*s;
+    }
+  }
+
+  function makeScatterFromBase(baseArr){
+    const out = new Float32Array(baseArr.length);
+    for(let i=0;i<baseArr.length;i+=3){
+      const x=baseArr[i], y=baseArr[i+1], z=baseArr[i+2];
+      const r = params.explodeRadius * (0.55 + Math.random()*0.65);
+      const th = Math.random()*Math.PI*2;
+      const ph = Math.acos(THREE.MathUtils.clamp(1 - 2*Math.random(), -1, 1));
+      const sx = r*Math.sin(ph)*Math.cos(th);
+      const sy = r*Math.cos(ph);
+      const sz = r*Math.sin(ph)*Math.sin(th);
+      out[i]   = x + sx;
+      out[i+1] = y + sy;
+      out[i+2] = z + sz;
+    }
+    return out;
+  }
+
+  // --------------------------
+  // Tesla logo points from SVG-like ShapePath (clean, stable "T")
+  // --------------------------
+  function buildTeslaLogoPointsSVG(N){
+    const path = new THREE.ShapePath();
+    // stylized but "Tesla T"-like, smooth and symmetric
+    path.moveTo( 0.00,  1.00);
+    path.bezierCurveTo( 0.35,  1.00,  0.55,  0.85,  0.55,  0.65);
+    path.bezierCurveTo( 0.55,  0.45,  0.25,  0.35,  0.10,  0.30);
+    path.lineTo( 0.02, -1.00);
+    path.lineTo(-0.02, -1.00);
+    path.lineTo(-0.10,  0.30);
+    path.bezierCurveTo(-0.25,  0.35, -0.55,  0.45, -0.55,  0.65);
+    path.bezierCurveTo(-0.55,  0.85, -0.35,  1.00,  0.00,  1.00);
+
+    const shapes = path.toShapes(true);
+    const pts = [];
+
+    shapes.forEach(s=>{
+      const p = s.getSpacedPoints(Math.max(400, Math.floor(N / shapes.length)));
+      p.forEach(v=>pts.push(v.x, 0, v.y)); // XZ plane (Y=0)
+    });
+
+    const out = new Float32Array(N*3);
+    const m = pts.length/3;
+    for(let i=0;i<N;i++){
+      const j = (i % m) * 3;
+      out[i*3+0] = pts[j+0];
+      out[i*3+1] = pts[j+1];
+      out[i*3+2] = pts[j+2];
+    }
+    return out;
+  }
+
+  // --------------------------
+  // Procedural Tesla-like point cloud (fallback)
+  // --------------------------
+  function buildProceduralTeslaPoints(count){
+    const keep = [];
+    const capsuleField = (p, a, b, r) => {
+      const pa = p.clone().sub(a);
+      const ba = b.clone().sub(a);
+      const h = THREE.MathUtils.clamp(pa.dot(ba)/ba.dot(ba), 0, 1);
+      return pa.sub(ba.multiplyScalar(h)).length() - r;
+    };
+
+    const tmp = new THREE.Vector3();
+    const p = new THREE.Vector3();
+
+    const aBody = new THREE.Vector3(-1.7, 0.55, 0);
+    const bBody = new THREE.Vector3( 1.7, 0.55, 0);
+    const rBody = 0.62;
+
+    const aCab  = new THREE.Vector3(-0.55, 1.05, 0);
+    const bCab  = new THREE.Vector3( 0.95, 1.05, 0);
+    const rCab  = 0.42;
+
+    const wheelC = [
+      new THREE.Vector3(-1.10, 0.35, 0.78),
+      new THREE.Vector3( 1.05, 0.35, 0.78),
+      new THREE.Vector3(-1.10, 0.35,-0.78),
+      new THREE.Vector3( 1.05, 0.35,-0.78),
+    ];
+
+    let tries = 0;
+    while(keep.length < count*3 && tries < count*18){
+      tries++;
+      p.set(rand(-2.1, 2.1), rand(0.05, 1.8), rand(-1.05, 1.05));
+      const dBody = capsuleField(p, aBody, bBody, rBody);
+      const dCab  = capsuleField(p, aCab,  bCab,  rCab);
+      let d = Math.min(dBody, dCab);
+
+      let arch = 0;
+      for(const wc of wheelC){
+        const dist = p.distanceTo(wc);
+        arch += Math.exp(-dist*dist*6.0);
+      }
+      const density = THREE.MathUtils.clamp(1.0 - arch*0.55, 0.10, 1.0);
+
+      if(d < 0 && Math.random() < density){
+        tmp.copy(p);
+        const t = THREE.MathUtils.clamp((tmp.x + 2.1)/4.2, 0, 1);
+        tmp.z *= THREE.MathUtils.lerp(0.72, 1.0, smoothstep01(t));
+        tmp.y += 0.06 * Math.sin((tmp.x+1.8)*1.1) * Math.exp(-tmp.z*tmp.z*1.8);
+
+        keep.push(tmp.x, tmp.y, tmp.z);
+      }
     }
 
-    // ============================================================
-    // Willis式による運動学計算
-    // ============================================================
-    function solveKinematics() {
-      // Willis式: ωs·Zs + ωr·Zr = ωc·(Zs + Zr)
-      const lockCount = (sunLocked ? 1 : 0) + (ringLocked ? 1 : 0) + (carrierLocked ? 1 : 0);
-      
-      if (lockCount >= 2) {
-        // 2つ以上固定 → すべて停止
-        if (!sunLocked) sunSpeed = 0;
-        if (!ringLocked) ringSpeed = 0;
-        if (!carrierLocked) carrierSpeed = 0;
-        return;
+    const arr = new Float32Array(keep);
+    centerAndScalePositions(arr, 1.0);
+    return arr;
+  }
+
+  // --------------------------
+  // Create point cloud (+ normals optional) + logo targets
+  // --------------------------
+  function createPointCloudFromPositions(posArr, normalArr=null){
+    disposePoints();
+
+    basePositions = posArr;
+    normals = normalArr;
+    targetPositions = new Float32Array(posArr);
+    scatterPositions = makeScatterFromBase(basePositions);
+    velocities = new Float32Array(posArr.length);
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(targetPositions, 3));
+
+    aW = new Float32Array(posArr.length/3);
+    geo.setAttribute("aW", new THREE.BufferAttribute(aW, 1));
+
+    if(normals){
+      geo.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    }
+
+    points = new THREE.Points(geo, particleMat);
+    root.add(points);
+
+    // Tesla Logo: allocate subset for attractor
+    logoCount = Math.min(6000, Math.floor((posArr.length/3) * 0.06));
+    logoTargets = buildTeslaLogoPointsSVG(logoCount);
+
+    controls.target.set(0, 0.9, 0);
+    controls.update();
+
+    toast(`パーティクル生成: ${(posArr.length/3).toLocaleString()}点 / ロゴ粒子: ${logoCount.toLocaleString()}点`, true);
+  }
+
+  // Default startup: procedural car (no normals)
+  createPointCloudFromPositions(buildProceduralTeslaPoints(params.count), null);
+
+  // --------------------------
+  // Animation loop
+  // --------------------------
+  const clock = new THREE.Clock();
+  const _viewDir = new THREE.Vector3();
+  const _q = new THREE.Quaternion();
+  const _n = new THREE.Vector3();
+
+  function tick(){
+    requestAnimationFrame(tick);
+    const dt = Math.min(clock.getDelta(), 0.033);
+    const t = clock.elapsedTime;
+
+    if(params.autoRotate){
+      root.rotation.y += dt * params.autoRotateSpeed;
+    }
+    controls.update();
+
+    particleMat.uniforms.uTime.value = t;
+
+    // silhouette weight update (only if normals exist)
+    if(points && normals && aW){
+      camera.getWorldDirection(_viewDir);
+      root.getWorldQuaternion(_q);
+
+      for(let i=0;i<aW.length;i++){
+        _n.set(normals[i*3], normals[i*3+1], normals[i*3+2]).applyQuaternion(_q).normalize();
+        aW[i] = Math.pow(1.0 - Math.abs(_n.dot(_viewDir)), 2.0);
       }
-      
-      if (lockCount === 1) {
-        if (ringLocked) {
-          // リング固定（最も一般的な減速機）
-          // ωc = (ωs·Zs) / (Zs + Zr)
-          carrierSpeed = (sunSpeed * Zs) / (Zs + Zr);
-        } else if (sunLocked) {
-          // サン固定（増速機）
-          // ωc = (ωr·Zr) / (Zs + Zr)
-          carrierSpeed = (ringSpeed * Zr) / (Zs + Zr);
-        } else if (carrierLocked) {
-          // キャリア固定（方向転換機）
-          // ωr = -(ωs·Zs) / Zr
-          if (lastChanged === "sun") {
-            ringSpeed = -(sunSpeed * Zs) / Zr;
-          } else {
-            sunSpeed = -(ringSpeed * Zr) / Zs;
+      points.geometry.attributes.aW.needsUpdate = true;
+    } else if(aW) {
+      // no normals: keep weights near 0 (stable)
+      // (do nothing to save time)
+    }
+
+    // particle dynamics
+    if(points){
+      const pos = points.geometry.attributes.position.array;
+      const base = basePositions;
+      const scat = scatterPositions;
+      const v = velocities;
+
+      const e = params.explode;
+      const spring = params.spring;
+      const damping = params.damping;
+      const noiseAmp = params.noise;
+      const flow = params.flow;
+      const edgePull = params.edgePull;
+
+      const nx = (i, x,y,z)=> Math.sin( (x*1.7 + t*0.9 + i*0.00007) ) * Math.cos( (z*1.3 - t*0.7) );
+      const ny = (i, x,y,z)=> Math.sin( (y*1.9 - t*0.6 + i*0.00005) ) * Math.cos( (x*1.2 + t*0.8) );
+      const nz = (i, x,y,z)=> Math.sin( (z*1.6 + t*0.7 + i*0.00006) ) * Math.cos( (y*1.1 - t*0.9) );
+
+      for(let i=0;i<pos.length;i+=3){
+        const x = pos[i], y = pos[i+1], z = pos[i+2];
+
+        const tx0 = THREE.MathUtils.lerp(base[i],   scat[i],   e);
+        const ty0 = THREE.MathUtils.lerp(base[i+1], scat[i+1], e);
+        const tz0 = THREE.MathUtils.lerp(base[i+2], scat[i+2], e);
+
+        // silhouette outward nudge (tightens silhouette feel)
+        const w = (aW && normals) ? aW[i/3] : 0.0;
+        const vxzLen = Math.sqrt(x*x + z*z) + 1e-6;
+        const ex = (x / vxzLen) * edgePull * w;
+        const ez = (z / vxzLen) * edgePull * w;
+
+        const fx = ((tx0 + ex) - x) * spring;
+        const fy = ( ty0      - y) * spring;
+        const fz = ((tz0 + ez) - z) * spring;
+
+        const px = nx(i, x,y,z) * noiseAmp * flow;
+        const py = ny(i, x,y,z) * noiseAmp * flow;
+        const pz = nz(i, x,y,z) * noiseAmp * flow;
+
+        v[i]   = (v[i]   + fx + px) * damping;
+        v[i+1] = (v[i+1] + fy + py) * damping;
+        v[i+2] = (v[i+2] + fz + pz) * damping;
+
+        // Tesla Logo attractor: first logoCount particles are used
+        if(logoTargets && params.logo > 0.0){
+          const pid = (i/3);
+          if(pid < logoCount){
+            const lx = logoTargets[pid*3+0] * params.logoSize + params.logoX;
+            const ly = params.logoLift;
+            const lz = logoTargets[pid*3+2] * params.logoSize + params.logoZ;
+
+            const k = params.logo;
+            // strong but stable attraction
+            v[i]   += (lx - x) * spring * k * 2.0;
+            v[i+1] += (ly - y) * spring * k * 2.0;
+            v[i+2] += (lz - z) * spring * k * 2.0;
           }
         }
-      } else {
-        // ロックなし → Willis式から計算
-        // ωc = (ωs·Zs + ωr·Zr) / (Zs + Zr)
-        carrierSpeed = (sunSpeed * Zs + ringSpeed * Zr) / (Zs + Zr);
+
+        pos[i]   += v[i];
+        pos[i+1] += v[i+1];
+        pos[i+2] += v[i+2];
       }
+
+      points.geometry.attributes.position.needsUpdate = true;
     }
 
-    function calculatePlanetSelfRotation() {
-      // プラネットの自転速度（キャリア基準）
-      // ωp_self = -(Zs / Zp) · (ωs - ωc)
-      return -(Zs / Zp) * (sunSpeed - carrierSpeed);
-    }
+    // FX
+    bloom.strength = params.bloomStrength;
+    bloom.radius = params.bloomRadius;
+    bloom.threshold = params.bloomThreshold;
+    afterimage.uniforms["damp"].value = params.trail;
+    renderer.toneMappingExposure = params.exposure;
 
-    // ============================================================
-    // UI更新
-    // ============================================================
-    function updateUI() {
-      sunSlider.value = sunSpeed;
-      ringSlider.value = ringSpeed;
-      carSlider.value = carrierSpeed;
-      
-      sunTxt.textContent = sunSpeed.toFixed(1);
-      ringTxt.textContent = ringSpeed.toFixed(1);
-      carTxt.textContent = carrierSpeed.toFixed(1);
-      
-      statSun.textContent = sunSpeed.toFixed(1) + " RPM";
-      statRing.textContent = ringSpeed.toFixed(1) + " RPM";
-      statCar.textContent = carrierSpeed.toFixed(1) + " RPM";
-      statPlanet.textContent = calculatePlanetSelfRotation().toFixed(1) + " RPM";
-      
-      // 減速比計算
-      const epsilon = 0.1;
-      if (Math.abs(carrierSpeed) > epsilon && Math.abs(sunSpeed) > epsilon) {
-        const ratio = Math.abs(sunSpeed / carrierSpeed);
-        statRatio.textContent = ratio.toFixed(2) + ":1";
-        statTorque.textContent = ratio.toFixed(2) + "x";
-      } else {
-        statRatio.textContent = "-";
-        statTorque.textContent = "-";
+    composer.render();
+  }
+  tick();
+
+  // --------------------------
+  // GUI
+  // --------------------------
+  const gui = new GUI({ width: 340 });
+  gui.domElement.style.position = "fixed";
+  gui.domElement.style.right = "18px";
+  gui.domElement.style.top = "18px";
+  gui.domElement.style.zIndex = "10";
+
+  const gParticles = gui.addFolder("Particles");
+  gParticles.add(params, "count", 20000, 220000, 1000).name("Count (rebuild)").onFinishChange(()=>{
+    createPointCloudFromPositions(buildProceduralTeslaPoints(params.count), null);
+  });
+  gParticles.add(params, "size", 0.004, 0.035, 0.001).name("Size").onChange(v=>{
+    particleMat.uniforms.uSize.value = v*1000;
+  });
+  gParticles.add(params, "opacity", 0.2, 1.0, 0.01).name("Opacity").onChange(v=>{
+    particleMat.uniforms.uOpacity.value = v;
+  });
+  gParticles.addColor(params, "colorA").name("Color A").onChange(v=>{
+    particleMat.uniforms.uColorA.value.set(v);
+  });
+  gParticles.addColor(params, "colorB").name("Color B").onChange(v=>{
+    particleMat.uniforms.uColorB.value.set(v);
+  });
+  gParticles.add(params, "colorMix", 0, 1, 0.01).name("Color Mix").onChange(v=>{
+    particleMat.uniforms.uColorMix.value = v;
+  });
+  gParticles.open();
+
+  const gMotion = gui.addFolder("Motion");
+  gMotion.add(params, "explode", 0, 1, 0.001).name("Explode");
+  gMotion.add(params, "explodeRadius", 0.6, 6.0, 0.05).name("Explode Radius").onFinishChange(()=>{
+    if(basePositions) scatterPositions = makeScatterFromBase(basePositions);
+  });
+  gMotion.add(params, "spring", 0.01, 0.22, 0.005).name("Spring");
+  gMotion.add(params, "damping", 0.65, 0.98, 0.005).name("Damping");
+  gMotion.add(params, "noise", 0.0, 0.55, 0.01).name("Noise");
+  gMotion.add(params, "flow", 0.0, 2.0, 0.01).name("Flow");
+  gMotion.add(params, "edgePull", 0.0, 0.40, 0.01).name("Edge Pull");
+  gMotion.add(params, "autoRotate").name("Auto Rotate");
+  gMotion.add(params, "autoRotateSpeed", 0.0, 1.5, 0.01).name("Rotate Speed");
+  gMotion.open();
+
+  const gLogo = gui.addFolder("Tesla Logo");
+  gLogo.add(params, "logo", 0, 1, 0.001).name("Strength");
+  gLogo.add(params, "logoSize", 0.25, 1.2, 0.01).name("Size");
+  gLogo.add(params, "logoLift", 0.6, 1.8, 0.01).name("Height (Y)");
+  gLogo.add(params, "logoX", -1.6, 0.2, 0.01).name("Forward (X)");
+  gLogo.add(params, "logoZ", -0.6, 0.6, 0.01).name("Offset (Z)");
+  gLogo.open();
+
+  const gFX = gui.addFolder("FX");
+  gFX.add(params, "bloomStrength", 0.0, 2.5, 0.01).name("Bloom Strength");
+  gFX.add(params, "bloomRadius", 0.0, 1.0, 0.01).name("Bloom Radius");
+  gFX.add(params, "bloomThreshold", 0.0, 1.0, 0.01).name("Bloom Threshold");
+  gFX.add(params, "trail", 0.0, 0.96, 0.001).name("Trail");
+  gFX.add(params, "exposure", 0.6, 1.8, 0.01).name("Exposure");
+  gFX.open();
+
+  // --------------------------
+  // UI toggles
+  // --------------------------
+  let guiVisible = true;
+  const hud = document.getElementById("hud");
+  const drop = document.getElementById("drop");
+  window.addEventListener("keydown", (e)=>{
+    const k = e.key.toLowerCase();
+    if(k==="g"){
+      guiVisible = !guiVisible;
+      gui.domElement.style.display = guiVisible ? "" : "none";
+      toast(guiVisible ? "GUI 表示" : "GUI 非表示", true);
+    }
+    if(k==="h"){
+      params.showHUD = !params.showHUD;
+      hud.style.display = params.showHUD ? "" : "none";
+      drop.style.display = params.showHUD ? "" : "none";
+      toast(params.showHUD ? "HUD 表示" : "HUD 非表示", true);
+    }
+  });
+
+  // --------------------------
+  // Buttons
+  // --------------------------
+  document.getElementById("btnExplode").addEventListener("click", ()=>{
+    params.explode = params.explode < 0.5 ? 1.0 : 0.0;
+    toast(params.explode>0.5 ? "拡散モード" : "収束モード", true);
+  });
+  document.getElementById("btnAuto").addEventListener("click", ()=>{
+    params.autoRotate = !params.autoRotate;
+    toast(params.autoRotate ? "自動回転 ON" : "自動回転 OFF", true);
+  });
+  document.getElementById("btnReset").addEventListener("click", ()=>{
+    params.explode = 0.0;
+    params.autoRotate = false;
+    root.rotation.set(0,0,0);
+    camera.position.set(0, 1.2, 5.2);
+    controls.target.set(0, 0.9, 0);
+    controls.update();
+    toast("視点・状態をリセット", true);
+  });
+  document.getElementById("btnShot").addEventListener("click", ()=>{
+    composer.render();
+    const a = document.createElement("a");
+    a.href = renderer.domElement.toDataURL("image/png");
+    a.download = "tesla_particles.png";
+    a.click();
+    toast("スクショ保存", true);
+  });
+
+  // --------------------------
+  // Resize
+  // --------------------------
+  window.addEventListener("resize", ()=>{
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+  });
+
+  // --------------------------
+  // GLB/GLTF Drag & Drop -> sample points + normals
+  // --------------------------
+  const dropzone = document.getElementById("dropzone");
+  const loader = new GLTFLoader();
+
+  function extractSampledPointsAndNormalsFromObject(obj, count){
+    // Collect triangles with areas and vertex normals (interpolated)
+    const meshes = [];
+    obj.traverse((n)=>{
+      if(n.isMesh && n.geometry){
+        const g = n.geometry.clone();
+        g.applyMatrix4(n.matrixWorld);
+        // ensure normals exist (for silhouette)
+        if(!g.getAttribute("normal")){
+          g.computeVertexNormals();
+        }
+        meshes.push(g);
       }
-      
-      // Willis式検証
-      const lhs = sunSpeed * Zs + ringSpeed * Zr;
-      const rhs = carrierSpeed * (Zs + Zr);
-      const error = Math.abs(lhs - rhs);
-      
-      if (error < 0.1) {
-        willisCheck.innerHTML = "✓ 成立 (誤差: " + error.toFixed(3) + ")";
-        willisCheck.style.color = "#4af2a1";
-      } else {
-        willisCheck.innerHTML = "✗ 不成立 (誤差: " + error.toFixed(3) + ")";
-        willisCheck.style.color = "#f5576c";
+    });
+    if(meshes.length===0) throw new Error("メッシュが見つかりません");
+
+    const tris = [];
+    let totalArea = 0;
+
+    const vA = new THREE.Vector3(), vB = new THREE.Vector3(), vC = new THREE.Vector3();
+    const nA = new THREE.Vector3(), nB = new THREE.Vector3(), nC = new THREE.Vector3();
+
+    for(const g of meshes){
+      const pos = g.getAttribute("position");
+      const nor = g.getAttribute("normal");
+      if(!pos || !nor) { g.dispose(); continue; }
+
+      const idx = g.index ? g.index.array : null;
+      const triCount = idx ? idx.length/3 : pos.count/3;
+
+      for(let t=0;t<triCount;t++){
+        const i0 = idx ? idx[t*3+0] : t*3+0;
+        const i1 = idx ? idx[t*3+1] : t*3+1;
+        const i2 = idx ? idx[t*3+2] : t*3+2;
+
+        vA.fromBufferAttribute(pos, i0);
+        vB.fromBufferAttribute(pos, i1);
+        vC.fromBufferAttribute(pos, i2);
+
+        nA.fromBufferAttribute(nor, i0);
+        nB.fromBufferAttribute(nor, i1);
+        nC.fromBufferAttribute(nor, i2);
+
+        const area = new THREE.Vector3().subVectors(vB, vA)
+          .cross(new THREE.Vector3().subVectors(vC, vA)).length() * 0.5;
+
+        if(area > 1e-10){
+          totalArea += area;
+          tris.push({
+            vA: vA.clone(), vB: vB.clone(), vC: vC.clone(),
+            nA: nA.clone(), nB: nB.clone(), nC: nC.clone(),
+            cum: totalArea
+          });
+        }
       }
+      g.dispose();
     }
+    if(tris.length===0) throw new Error("有効な三角形が見つかりません");
 
-    function recalculate() {
-      solveKinematics();
-      updateUI();
-    }
+    const outP = new Float32Array(count*3);
+    const outN = new Float32Array(count*3);
 
-    // ============================================================
-    // モード設定
-    // ============================================================
-    window.setMode = function(mode) {
-      sunLocked = ringLocked = carrierLocked = false;
-      sunLock.checked = ringLock.checked = carLock.checked = false;
-      sunSlider.disabled = ringSlider.disabled = carSlider.disabled = false;
-      
-      switch (mode) {
-        case 'reduction':
-          modeBadge.textContent = "減速モード";
-          modeBadge.style.background = "linear-gradient(135deg,#f093fb 0%,#f5576c 100%)";
-          modeBadge.style.color = "#fff";
-          sunSpeed = 60;
-          ringSpeed = 0;
-          ringLocked = true;
-          ringLock.checked = true;
-          ringSlider.disabled = true;
-          lastChanged = "sun";
-          break;
-          
-        case 'increase':
-          modeBadge.textContent = "増速モード";
-          modeBadge.style.background = "linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)";
-          modeBadge.style.color = "#fff";
-          sunSpeed = 0;
-          ringSpeed = 60;
-          sunLocked = true;
-          sunLock.checked = true;
-          sunSlider.disabled = true;
-          lastChanged = "ring";
-          break;
-          
-        case 'direct':
-          modeBadge.textContent = "直結モード";
-          modeBadge.style.background = "linear-gradient(135deg,#ffd700 0%,#ffed4e 100%)";
-          modeBadge.style.color = "#333";
-          sunSpeed = ringSpeed = 60;
-          lastChanged = "sun";
-          break;
-          
-        case 'reverse':
-          modeBadge.textContent = "逆転モード";
-          modeBadge.style.background = "linear-gradient(135deg,#667eea 0%,#764ba2 100%)";
-          modeBadge.style.color = "#fff";
-          sunSpeed = 0;
-          carrierSpeed = 60;
-          sunLocked = true;
-          sunLock.checked = true;
-          sunSlider.disabled = true;
-          lastChanged = "car";
-          break;
+    for(let i=0;i<count;i++){
+      const r = Math.random()*totalArea;
+      let lo=0, hi=tris.length-1;
+      while(lo<hi){
+        const mid=(lo+hi)>>1;
+        if(tris[mid].cum < r) lo=mid+1;
+        else hi=mid;
       }
-      
-      recalculate();
+      const tri = tris[lo];
+
+      // uniform sample on triangle
+      let u = Math.random();
+      let v = Math.random();
+      if(u+v>1){ u=1-u; v=1-v; }
+
+      const p = tri.vA.clone()
+        .add(tri.vB.clone().sub(tri.vA).multiplyScalar(u))
+        .add(tri.vC.clone().sub(tri.vA).multiplyScalar(v));
+
+      // barycentric normal interpolation (approx)
+      const w = 1 - u - v;
+      const nn = tri.nA.clone().multiplyScalar(w)
+        .add(tri.nB.clone().multiplyScalar(u))
+        .add(tri.nC.clone().multiplyScalar(v))
+        .normalize();
+
+      outP[i*3+0]=p.x; outP[i*3+1]=p.y; outP[i*3+2]=p.z;
+      outN[i*3+0]=nn.x; outN[i*3+1]=nn.y; outN[i*3+2]=nn.z;
     }
 
-    // ============================================================
-    // コントロール
-    // ============================================================
-    window.toggleAnim = function() {
-      running = !running;
-      toggleBtn.textContent = running ? "⏸️ 停止" : "▶️ 再生";
+    // center/scale positions; normals are unaffected
+    centerAndScalePositions(outP, 1.0);
+    return { positions: outP, normals: outN };
+  }
+
+  function handleFiles(fileList){
+    const file = [...fileList].find(f=>/\.glb$/i.test(f.name) || /\.gltf$/i.test(f.name));
+    if(!file){
+      toast("GLB/GLTF が見つかりません", false);
+      return;
     }
+    const url = URL.createObjectURL(file);
 
-    window.resetView = function() {
-      camera.position.set(6, 4, 8);
-      controls.target.set(0, 0, 0);
-      controls.update();
+    loader.load(url, (gltf)=>{
+      URL.revokeObjectURL(url);
+
+      const obj = gltf.scene;
+      obj.updateMatrixWorld(true);
+
+      // normalize object scale before sampling
+      const box = new THREE.Box3().setFromObject(obj);
+      const size = new THREE.Vector3();
+      const center = new THREE.Vector3();
+      box.getSize(size);
+      box.getCenter(center);
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      const s = 2.0 / maxDim;
+      obj.position.sub(center);
+      obj.scale.multiplyScalar(s);
+      obj.updateMatrixWorld(true);
+
+      const sampled = extractSampledPointsAndNormalsFromObject(obj, params.count);
+      createPointCloudFromPositions(sampled.positions, sampled.normals);
+
+      toast(`モデル読込: ${file.name} → 粒子化 + 輪郭強調`, true);
+    }, undefined, (err)=>{
+      URL.revokeObjectURL(url);
+      console.error(err);
+      toast("読み込み失敗（GLTF依存ファイル不足の可能性）", false);
+    });
+  }
+
+  // Drag & Drop UI effects
+  let dragDepth = 0;
+  window.addEventListener("dragenter", (e)=>{ e.preventDefault(); dragDepth++; dropzone.style.borderColor="rgba(120,140,255,.75)"; });
+  window.addEventListener("dragleave", (e)=>{ e.preventDefault(); dragDepth--; if(dragDepth<=0){ dropzone.style.borderColor="rgba(120,140,255,.35)"; dragDepth=0; }});
+  window.addEventListener("dragover", (e)=>{ e.preventDefault(); });
+  window.addEventListener("drop", (e)=>{
+    e.preventDefault();
+    dragDepth = 0;
+    dropzone.style.borderColor="rgba(120,140,255,.35)";
+    if(e.dataTransfer?.files?.length){
+      handleFiles(e.dataTransfer.files);
     }
+  });
 
-    // イベントリスナー
-    sunSlider.addEventListener("input", e => {
-      if (sunLocked) return;
-      lastChanged = "sun";
-      sunSpeed = parseFloat(e.target.value);
-      recalculate();
-    });
-
-    ringSlider.addEventListener("input", e => {
-      if (ringLocked) return;
-      lastChanged = "ring";
-      ringSpeed = parseFloat(e.target.value);
-      recalculate();
-    });
-
-    carSlider.addEventListener("input", e => {
-      if (carrierLocked) return;
-      lastChanged = "car";
-      carrierSpeed = parseFloat(e.target.value);
-      recalculate();
-    });
-
-    sunLock.addEventListener("change", e => {
-      sunLocked = e.target.checked;
-      sunSlider.disabled = sunLocked;
-      if (sunLocked) sunSpeed = 0;
-      recalculate();
-    });
-
-    ringLock.addEventListener("change", e => {
-      ringLocked = e.target.checked;
-      ringSlider.disabled = ringLocked;
-      if (ringLocked) ringSpeed = 0;
-      recalculate();
-    });
-
-    carLock.addEventListener("change", e => {
-      carrierLocked = e.target.checked;
-      carSlider.disabled = carrierLocked;
-      if (carrierLocked) carrierSpeed = 0;
-      recalculate();
-    });
-
-    showWireframe.addEventListener("change", e => {
-      wireframeObjects.forEach(w => w.visible = e.target.checked);
-    });
-
-    // ============================================================
-    // アニメーションループ
-    // ============================================================
-    function animate() {
-      requestAnimationFrame(animate);
-      
-      if (running) {
-        const dt = 1 / 60;
-        const rpm2rad = (2 * Math.PI) / 60;
-        
-        sunAngle += sunSpeed * rpm2rad * dt;
-        ringAngle += ringSpeed * rpm2rad * dt;
-        carrierAngle += carrierSpeed * rpm2rad * dt;
-        
-        if (sunMesh) sunMesh.rotation.y = sunAngle;
-        if (ringMesh) ringMesh.rotation.y = ringAngle;
-        if (carrierGroup) carrierGroup.rotation.y = carrierAngle;
-        
-        // プラネットギヤの自転（完全噛み合い）
-        const planetSelfRotation = -(Zs / Zp) * (sunAngle - carrierAngle);
-        planetMeshes.forEach((planet, i) => {
-          const phaseOffset = (i / numPlanets) * 2 * Math.PI;
-          planet.rotation.y = planetSelfRotation - phaseOffset * (Zs / Zp);
-        });
-      }
-      
-      // 表示制御
-      axesHelper.visible = showAxes.checked;
-      carrierArms.forEach(obj => obj.visible = showCarrier.checked);
-      
-      // 自動回転
-      if (autoRotate.checked) {
-        const t = Date.now() * 0.0002;
-        const radius = 10;
-        camera.position.x = Math.cos(t) * radius;
-        camera.position.z = Math.sin(t) * radius;
-        camera.position.y = 4 + Math.sin(t * 0.5) * 2;
-        camera.lookAt(0, 0, 0);
-      }
-      
-      controls.update();
-      renderer.render(scene, camera);
-    }
-
-    // ============================================================
-    // 初期化・開始
-    // ============================================================
-    initScene();
-    setMode('reduction');
-    animate();
-  </script>
-
+  toast("起動完了：ドラッグ=回転 / ホイール=ズーム（Logo既定ON）", true);
+</script>
 </body>
 </html>
