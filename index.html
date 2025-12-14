@@ -104,30 +104,30 @@
 
   // Scene setup
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0a0a0f);
-  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.02);
+  scene.background = new THREE.Color(0x0f0f14);
+  scene.fog = new THREE.FogExp2(0x0f0f14, 0.015);
 
   // Isometric camera setup
   const aspect = innerWidth / innerHeight;
-  const frustumSize = 4;
+  const frustumSize = 3.5;
   const camera = new THREE.OrthographicCamera(
     -frustumSize * aspect / 2,
     frustumSize * aspect / 2,
     frustumSize / 2,
     -frustumSize / 2,
     0.1,
-    1000
+    100
   );
 
-  // Isometric angle (45° from above)
-  const distance = 8;
+  // Isometric angle (45° from above, closer view)
+  const distance = 10;
   const angle = Math.PI / 4; // 45 degrees
   camera.position.set(
     distance * Math.cos(angle),
-    distance * 0.7,
+    distance * 0.6,
     distance * Math.sin(angle)
   );
-  camera.lookAt(0, 0.8, 0);
+  camera.lookAt(0, 0.5, 0);
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -147,7 +147,7 @@
   controls.dampingFactor = 0.08;
   controls.enableZoom = true;
   controls.zoomSpeed = 0.5;
-  controls.target.set(0, 0.8, 0);
+  controls.target.set(0, 0.5, 0);
   controls.enablePan = true;
   controls.panSpeed = 0.5;
   controls.rotateSpeed = 0.5;
@@ -156,16 +156,20 @@
     TWO: THREE.TOUCH.DOLLY_PAN
   };
 
-  // Lighting
-  const keyLight = new THREE.DirectionalLight(0xa0b5ff, 0.6);
+  // Lighting (brighter for visibility)
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.0);
   keyLight.position.set(5, 8, 3);
   scene.add(keyLight);
 
-  const fillLight = new THREE.DirectionalLight(0x6080ff, 0.25);
-  fillLight.position.set(-3, 2, -4);
+  const fillLight = new THREE.DirectionalLight(0x8899ff, 0.5);
+  fillLight.position.set(-3, 4, -4);
   scene.add(fillLight);
 
-  scene.add(new THREE.AmbientLight(0x4060a0, 0.2));
+  const rimLight = new THREE.DirectionalLight(0xaabbff, 0.4);
+  rimLight.position.set(0, 2, -5);
+  scene.add(rimLight);
+
+  scene.add(new THREE.AmbientLight(0x6080b0, 0.4));
 
   // Ground
   const ground = new THREE.Mesh(
@@ -209,8 +213,8 @@
 
   // Parameters (mobile optimized)
   const params = {
-    count: 60000,  // Reduced for mobile performance
-    size: 0.014,
+    count: 80000,  // Increased for better visibility
+    size: 0.024,   // Larger particles
     opacity: 1.0,
     explode: 0.0,
     explodeRadius: 2.8,
@@ -223,7 +227,7 @@
     autoRotateSpeed: 0.3,
     logo: 0.7,
     logoSize: 0.55,
-    logoLift: 1.2,
+    logoLift: 0.9,
     logoX: -0.7,
     logoZ: 0.0,
   };
@@ -234,7 +238,7 @@
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     uniforms: {
-      uSize: { value: params.size * 800 },
+      uSize: { value: params.size * 600 },
       uOpacity: { value: params.opacity },
       uTime: { value: 0 },
     },
@@ -252,7 +256,7 @@
 
         // Orthographic camera - constant size
         float size = uSize;
-        size *= mix(1.0, 2.5, vW); // Emphasize silhouette edges
+        size *= mix(1.0, 2.8, vW); // Emphasize silhouette edges
 
         gl_PointSize = size;
         gl_Position = projectionMatrix * mv;
@@ -267,17 +271,17 @@
         vec2 uv = gl_PointCoord - vec2(0.5);
         float d = length(uv);
         float alpha = smoothstep(0.5, 0.0, d);
-        alpha = pow(alpha, 1.5);
+        alpha = pow(alpha, 1.3);
 
-        // Tesla-inspired colors (blue-white gradient based on height)
-        vec3 colA = vec3(0.5, 0.7, 1.0);  // Soft blue
-        vec3 colB = vec3(0.95, 0.97, 1.0); // Bright white
-        float heightMix = clamp(vY / 2.0, 0.0, 1.0);
-        vec3 col = mix(colA, colB, heightMix * 0.7);
+        // Tesla-inspired colors (brighter blue-white gradient)
+        vec3 colA = vec3(0.6, 0.8, 1.0);   // Brighter blue
+        vec3 colB = vec3(1.0, 1.0, 1.0);   // Pure white
+        float heightMix = clamp(vY / 1.8, 0.0, 1.0);
+        vec3 col = mix(colA, colB, heightMix * 0.8);
 
         // Silhouette edges glow
-        col *= mix(1.0, 2.0, vW);
-        alpha *= mix(0.9, 1.5, vW);
+        col *= mix(1.2, 2.2, vW);
+        alpha *= mix(1.0, 1.6, vW);
 
         gl_FragColor = vec4(col, alpha * uOpacity);
       }
@@ -316,7 +320,7 @@
     const s = (maxR>0) ? (targetRadius/maxR) : 1;
     for(let i=0;i<arr.length;i+=3){
       arr[i]   = (arr[i]-cx)*s;
-      arr[i+1] = (arr[i+1]-cy)*s + 1.0;
+      arr[i+1] = (arr[i+1]-cy)*s + 0.5;  // Lower Y offset for better view
       arr[i+2] = (arr[i+2]-cz)*s;
     }
   }
@@ -467,7 +471,7 @@
     logoCount = Math.min(5000, Math.floor((posArr.length/3) * 0.08));
     logoTargets = buildTeslaLogoPointsSVG(logoCount);
 
-    controls.target.set(0, 1.0, 0);
+    controls.target.set(0, 0.5, 0);
     controls.update();
   }
 
@@ -591,14 +595,14 @@
     root.rotation.set(0,0,0);
 
     // Reset to isometric view
-    const distance = 8;
+    const distance = 10;
     const angle = Math.PI / 4;
     camera.position.set(
       distance * Math.cos(angle),
-      distance * 0.7,
+      distance * 0.6,
       distance * Math.sin(angle)
     );
-    controls.target.set(0, 0.8, 0);
+    controls.target.set(0, 0.5, 0);
     controls.update();
     showInfo("リセット完了");
   });
@@ -606,7 +610,7 @@
   // Resize handler (orthographic camera)
   window.addEventListener("resize", ()=>{
     const aspect = innerWidth / innerHeight;
-    const frustumSize = 4;
+    const frustumSize = 3.5;
     camera.left = -frustumSize * aspect / 2;
     camera.right = frustumSize * aspect / 2;
     camera.top = frustumSize / 2;
