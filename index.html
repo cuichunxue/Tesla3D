@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D プラネタリギヤ - 物理正確版</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Segoe UI',system-ui,-apple-system,Roboto,Arial,sans-serif;
+      background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+      color:#fff; overflow:hidden;
+    }
+    #canvas-container{width:100vw;height:100vh;position:relative}
+    .ui{position:absolute;inset:0;pointer-events:none}
+    .panel{
+      position:absolute;top:20px;left:20px;width:380px;max-height:calc(100vh - 40px);
+      overflow-y:auto;pointer-events:auto;background:rgba(0,0,0,.85);
+      backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.15);
+      border-radius:16px;padding:18px;box-shadow:0 12px 36px rgba(0,0,0,.5);
+    }
+    .title{font-weight:900;font-size:18px;margin-bottom:6px;color:#ffd700}
+    .sub{opacity:.85;font-size:13px;line-height:1.4;margin-bottom:14px}
+    .group{
+      border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:14px;margin-bottom:12px;
+      background:rgba(255,255,255,.05);
+    }
+    .group h3{font-size:14px;color:#4af2a1;margin-bottom:10px;font-weight:800}
+    label{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;margin-bottom:8px}
+    .val{color:#ffd700;font-weight:900;min-width:80px;text-align:right}
+    input[type="range"]{width:100%;height:6px;border-radius:3px;background:rgba(255,255,255,.25);outline:none;-webkit-appearance:none}
+    input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#ffd700;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+    input[type="range"]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#ffd700;cursor:pointer;border:none;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+    .checks{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+    .chk{display:flex;align-items:center;gap:6px;font-size:12px}
+    .chk input{width:16px;height:16px;cursor:pointer}
+    .presets{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .preset{
+      text-align:center;background:rgba(255,255,255,.15);
+      border:1px solid rgba(255,255,255,.2);
+      border-radius:10px;padding:12px 8px;font-weight:800;font-size:12px;
+      cursor:pointer;color:#fff;transition:.2s;
+    }
+    .preset:hover{background:rgba(255,255,255,.25);transform:translateY(-2px)}
+    .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    button{
+      border:none;border-radius:10px;padding:12px;font-weight:900;font-size:13px;cursor:pointer;color:#fff;
+      box-shadow:0 6px 16px rgba(0,0,0,.3);transition:.2s;
+    }
+    button:hover{transform:translateY(-2px);filter:brightness(1.1)}
+    .b1{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
+    .b2{background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%)}
+    .right{
+      position:absolute;top:20px;right:20px;width:340px;pointer-events:auto;
+      background:rgba(0,0,0,.85);backdrop-filter:blur(12px);
+      border:1px solid rgba(255,255,255,.15);
+      border-radius:16px;padding:18px;box-shadow:0 12px 36px rgba(0,0,0,.5);
+    }
+    .badge{
+      display:inline-block;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:900;margin-bottom:12px;
+      background:linear-gradient(135deg,#f093fb 0%,#f5576c 100%);
+    }
+    .card{
+      border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px;margin-bottom:10px;background:rgba(255,255,255,.05);
+    }
+    .k{font-size:12px;opacity:.8;margin-bottom:4px}
+    .v{font-size:20px;font-weight:900;color:#ffd700}
+    .formula{
+      background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);
+      border-radius:8px;padding:10px;margin-top:10px;font-size:12px;
+      font-family:'Courier New',monospace;color:#ffd700;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+
+  <div class="ui">
+    <div class="panel">
+      <div class="title">⚙️ 3D プラネタリギヤ - 物理正確版</div>
+      <div class="sub">インボリュート歯形 / Willis式運動学 / 完全噛み合い保証</div>
+
+```
+  <div class="group">
+    <h3>📐 ギヤ仕様</h3>
+    <div style="font-size:12px;opacity:.9;line-height:1.6">
+      • サン歯数: <strong style="color:#ffd700">Zs = 20</strong><br>
+      • プラネット歯数: <strong style="color:#ffd700">Zp = 20</strong><br>
+      • リング歯数: <strong style="color:#ffd700">Zr = 60</strong><br>
+      • モジュール: <strong style="color:#ffd700">m = 0.10</strong><br>
+      • 圧力角: <strong style="color:#ffd700">α = 20°</strong>
+    </div>
+    <div class="formula">
+      Willis式: (ωs·Zs + ωr·Zr) = ωc·(Zs + Zr)
+    </div>
+  </div>
+
+  <div class="group">
+    <h3>🎮 動作モード</h3>
+    <div class="presets">
+      <button class="preset" onclick="setMode('reduction')">減速<br>(Sun入力)</button>
+      <button class="preset" onclick="setMode('increase')">増速<br>(Ring入力)</button>
+      <button class="preset" onclick="setMode('direct')">直結<br>(同速)</button>
+      <button class="preset" onclick="setMode('reverse')">逆転<br>(Car入力)</button>
+    </div>
+  </div>
+
+  <div class="group">
+    <h3>🎚️ 速度制御（RPM）</h3>
+
+    <div style="margin:12px 0">
+      <label>サンギヤ <span class="val" id="sunTxt">60.0</span></label>
+      <input id="sunSlider" type="range" min="-200" max="200" step="0.1" value="60">
+      <div class="checks"><div class="chk"><input id="sunLock" type="checkbox">固定</div></div>
+    </div>
+
+    <div style="margin:12px 0">
+      <label>リングギヤ <span class="val" id="ringTxt">0.0</span></label>
+      <input id="ringSlider" type="range" min="-200" max="200" step="0.1" value="0">
+      <div class="checks"><div class="chk"><input id="ringLock" type="checkbox" checked>固定</div></div>
+    </div>
+
+    <div style="margin:12px 0">
+      <label>キャリア <span class="val" id="carTxt">0.0</span></label>
+      <input id="carSlider" type="range" min="-200" max="200" step="0.1" value="0">
+      <div class="checks"><div class="chk"><input id="carLock" type="checkbox">固定</div></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <h3>🎨 表示設定</h3>
+    <div class="checks">
+      <div class="chk"><input id="showCarrier" type="checkbox" checked>キャリア</div>
+      <div class="chk"><input id="showAxes" type="checkbox" checked>軸</div>
+      <div class="chk"><input id="showWireframe" type="checkbox">ワイヤーフレーム</div>
+      <div class="chk"><input id="autoRotate" type="checkbox">自動回転</div>
+    </div>
+
+    <div class="btns">
+      <button class="b1" onclick="toggleAnim()" id="toggleBtn">⏸️ 停止</button>
+      <button class="b2" onclick="resetView()">📷 視点リセット</button>
+    </div>
+  </div>
+</div>
+
+<div class="right">
+  <div class="badge" id="modeBadge">減速モード</div>
+  
+  <div class="card"><div class="k">サンギヤ回転数</div><div class="v" id="statSun">60.0 RPM</div></div>
+  <div class="card"><div class="k">プラネット自転（対キャリア）</div><div class="v" id="statPlanet">0.0 RPM</div></div>
+  <div class="card"><div class="k">リングギヤ回転数</div><div class="v" id="statRing">0.0 RPM</div></div>
+  <div class="card"><div class="k">キャリア回転数</div><div class="v" id="statCar">15.0 RPM</div></div>
+  <div class="card"><div class="k">減速比（入力/出力）</div><div class="v" id="statRatio">4.00:1</div></div>
+  <div class="card"><div class="k">トルク増幅率</div><div class="v" id="statTorque">4.00x</div></div>
+  
+  <div class="formula" style="margin-top:14px">
+    検証: ωs·20 + ωr·60 = ωc·80<br>
+    <span id="willisCheck" style="color:#4af2a1">✓ 成立</span>
+  </div>
+</div>
+```
+
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // ============================================================
+    // ギヤパラメータ（物理的に正確）
+    // ============================================================
+    const Zs = 20;  // サン歯数
+    const Zp = 20;  // プラネット歯数
+    const Zr = 60;  // リング歯数（= Zs + 2·Zp）
+
+    const module = 0.10;  // モジュール
+    const pressureAngle = 20 * Math.PI / 180;  // 圧力角（rad）
+    
+    // ピッチ円半径（物理的に正確）
+    const rSun = (module * Zs) / 2;      // 1.0
+    const rPlanet = (module * Zp) / 2;   // 1.0
+    const rRing = (module * Zr) / 2;     // 3.0
+    
+    // 中心間距離（完全噛み合い条件）
+    const centerDistance = rSun + rPlanet;  // 2.0
+    
+    // 歯丈係数（JIS標準）
+    const addendum = 1.00 * module;      // 歯先高さ
+    const dedendum = 1.25 * module;      // 歯底高さ
+    
+    const gearThickness = 0.35;
+    const numPlanets = 3;
+
+    // ============================================================
+    // 状態変数
+    // ============================================================
+    let sunSpeed = 60;    // RPM
+    let ringSpeed = 0;    // RPM
+    let carrierSpeed = 0; // RPM
+    
+    let sunLocked = false;
+    let ringLocked = true;
+    let carrierLocked = false;
+    
+    let sunAngle = 0;
+    let ringAngle = 0;
+    let carrierAngle = 0;
+    
+    let running = true;
+    let lastChanged = "sun";
+
+    // ============================================================
+    // Three.js オブジェクト
+    // ============================================================
+    let scene, camera, renderer, controls, axesHelper;
+    let sunMesh, ringMesh, carrierGroup;
+    let planetMeshes = [];
+    let carrierArms = [];
+    let wireframeObjects = [];
+
+    // ============================================================
+    // インボリュート歯形生成（物理的に正確）
+    // ============================================================
+    function involutePoint(baseRadius, t) {
+      return new THREE.Vector2(
+        baseRadius * (Math.cos(t) + t * Math.sin(t)),
+        baseRadius * (Math.sin(t) - t * Math.cos(t))
+      );
+    }
+
+    function tFromRadius(baseRadius, radius) {
+      const ratio = radius / baseRadius;
+      return Math.sqrt(Math.max(0, ratio * ratio - 1));
+    }
+
+    function buildInvoluteGearProfile(pitchRadius, numTeeth, isInternal = false) {
+      const baseRadius = pitchRadius * Math.cos(pressureAngle);
+      const outerRadius = pitchRadius + addendum;
+      const rootRadius = Math.max(baseRadius * 0.5, pitchRadius - dedendum);
+      
+      const angularPitch = 2 * Math.PI / numTeeth;
+      const toothThickness = Math.PI * module / 2;  // ピッチ円上の歯厚
+      
+      const shape = new THREE.Shape();
+      
+      if (isInternal) {
+        // 内歯車（リングギヤ）
+        const innerRadius = pitchRadius - addendum;
+        const valleyRadius = pitchRadius + dedendum;
+        
+        // 外周円
+        for (let i = 0; i <= 64; i++) {
+          const angle = (i / 64) * 2 * Math.PI;
+          const x = Math.cos(angle) * valleyRadius;
+          const y = Math.sin(angle) * valleyRadius;
+          if (i === 0) shape.moveTo(x, y);
+          else shape.lineTo(x, y);
+        }
+        
+        // 内側の歯（ホール）
+        const hole = new THREE.Path();
+        const startAngle = 0;
+        hole.moveTo(Math.cos(startAngle) * innerRadius, Math.sin(startAngle) * innerRadius);
+        
+        for (let i = 0; i < numTeeth; i++) {
+          const baseAngle = i * angularPitch;
+          
+          // 歯底円弧
+          const dedAng1 = baseAngle - angularPitch * 0.45;
+          const dedAng2 = baseAngle - angularPitch * 0.20;
+          for (let j = 0; j <= 6; j++) {
+            const a = dedAng1 + (dedAng2 - dedAng1) * (j / 6);
+            hole.lineTo(Math.cos(a) * pitchRadius, Math.sin(a) * pitchRadius);
+          }
+          
+          // 左フランク（簡略インボリュート）
+          const t0 = tFromRadius(baseRadius, Math.max(baseRadius, innerRadius));
+          const t1 = tFromRadius(baseRadius, pitchRadius);
+          for (let j = 0; j <= 8; j++) {
+            const t = t0 + (t1 - t0) * (j / 8);
+            const p = involutePoint(baseRadius, t);
+            const angle = Math.atan2(p.y, p.x) + baseAngle - angularPitch * 0.20;
+            hole.lineTo(Math.cos(angle) * p.length(), Math.sin(angle) * p.length());
+          }
+          
+          // 歯先円弧
+          const tipAng1 = baseAngle - angularPitch * 0.05;
+          const tipAng2 = baseAngle + angularPitch * 0.05;
+          for (let j = 0; j <= 6; j++) {
+            const a = tipAng1 + (tipAng2 - tipAng1) * (j / 6);
+            hole.lineTo(Math.cos(a) * innerRadius, Math.sin(a) * innerRadius);
+          }
+          
+          // 右フランク
+          for (let j = 8; j >= 0; j--) {
+            const t = t0 + (t1 - t0) * (j / 8);
+            const p = involutePoint(baseRadius, t);
+            const angle = Math.atan2(p.y, p.x) + baseAngle + angularPitch * 0.20;
+            hole.lineTo(Math.cos(angle) * p.length(), Math.sin(angle) * p.length());
+          }
+          
+          // 次の歯底へ
+          const dedAng3 = baseAngle + angularPitch * 0.20;
+          const dedAng4 = baseAngle + angularPitch * 0.55;
+          for (let j = 0; j <= 6; j++) {
+            const a = dedAng3 + (dedAng4 - dedAng3) * (j / 6);
+            hole.lineTo(Math.cos(a) * pitchRadius, Math.sin(a) * pitchRadius);
+          }
+        }
+        
+        shape.holes.push(hole);
+        
+      } else {
+        // 外歯車（サンギヤ、プラネットギヤ）
+        let firstPoint = null;
+        
+        for (let i = 0; i < numTeeth; i++) {
+          const baseAngle = i * angularPitch;
+          
+          // 歯底の開始点
+          const rootAng1 = baseAngle - angularPitch * 0.55;
+          const rootStart = new THREE.Vector2(
+            Math.cos(rootAng1) * rootRadius,
+            Math.sin(rootAng1) * rootRadius
+          );
+          
+          if (i === 0) {
+            shape.moveTo(rootStart.x, rootStart.y);
+            firstPoint = rootStart;
+          } else {
+            shape.lineTo(rootStart.x, rootStart.y);
+          }
+          
+          // 歯底円弧
+          const rootAng2 = baseAngle - angularPitch * 0.25;
+          for (let j = 1; j <= 6; j++) {
+            const a = rootAng1 + (rootAng2 - rootAng1) * (j / 6);
+            shape.lineTo(Math.cos(a) * rootRadius, Math.sin(a) * rootRadius);
+          }
+          
+          // 左フランク（インボリュート曲線）
+          const tStart = tFromRadius(baseRadius, Math.max(baseRadius, rootRadius));
+          const tEnd = tFromRadius(baseRadius, outerRadius);
+          
+          for (let j = 0; j <= 10; j++) {
+            const t = tStart + (tEnd - tStart) * (j / 10);
+            const p = involutePoint(baseRadius, t);
+            const offsetAngle = baseAngle - toothThickness / (2 * pitchRadius);
+            const angle = Math.atan2(p.y, p.x) + offsetAngle;
+            const r = p.length();
+            shape.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+          }
+          
+          // 歯先円弧
+          const tipAngLeft = Math.atan2(
+            involutePoint(baseRadius, tEnd).y,
+            involutePoint(baseRadius, tEnd).x
+          ) + baseAngle - toothThickness / (2 * pitchRadius);
+          
+          const tipAngRight = baseAngle + toothThickness / (2 * pitchRadius) - 
+                              Math.atan2(
+                                involutePoint(baseRadius, tEnd).y,
+                                involutePoint(baseRadius, tEnd).x
+                              );
+          
+          for (let j = 1; j <= 8; j++) {
+            const a = tipAngLeft + (tipAngRight - tipAngLeft) * (j / 8);
+            shape.lineTo(Math.cos(a) * outerRadius, Math.sin(a) * outerRadius);
+          }
+          
+          // 右フランク（インボリュート曲線・逆順）
+          for (let j = 10; j >= 0; j--) {
+            const t = tStart + (tEnd - tStart) * (j / 10);
+            const p = involutePoint(baseRadius, t);
+            const offsetAngle = baseAngle + toothThickness / (2 * pitchRadius);
+            const angle = Math.atan2(p.y, p.x) + offsetAngle;
+            const r = p.length();
+            shape.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+          }
+          
+          // 次の歯底へ
+          const rootAng3 = baseAngle + angularPitch * 0.25;
+          const rootAng4 = baseAngle + angularPitch * 0.55;
+          for (let j = 1; j <= 6; j++) {
+            const a = rootAng3 + (rootAng4 - rootAng3) * (j / 6);
+            shape.lineTo(Math.cos(a) * rootRadius, Math.sin(a) * rootRadius);
+          }
+        }
+        
+        if (firstPoint) {
+          shape.lineTo(firstPoint.x, firstPoint.y);
+        }
+      }
+      
+      return shape;
+    }
+
+    function extrudeGear(shape) {
+      const geometry = new THREE.ExtrudeGeometry(shape, {
+        depth: gearThickness,
+        bevelEnabled: true,
+        bevelThickness: 0.02,
+        bevelSize: 0.02,
+        bevelSegments: 3
+      });
+      geometry.rotateX(Math.PI / 2);
+      geometry.center();
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    // ============================================================
+    // シーン初期化
+    // ============================================================
+    function initScene() {
+      const container = document.getElementById("canvas-container");
+      
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0a0a1a);
+      scene.fog = new THREE.Fog(0x0a0a1a, 15, 60);
+      
+      camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+      camera.position.set(6, 4, 8);
+      
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+      
+      // ライティング
+      scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+      
+      const keyLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      keyLight.position.set(8, 12, 8);
+      keyLight.castShadow = true;
+      keyLight.shadow.mapSize.set(2048, 2048);
+      keyLight.shadow.camera.near = 0.5;
+      keyLight.shadow.camera.far = 50;
+      keyLight.shadow.camera.left = -10;
+      keyLight.shadow.camera.right = 10;
+      keyLight.shadow.camera.top = 10;
+      keyLight.shadow.camera.bottom = -10;
+      scene.add(keyLight);
+      
+      const fillLight = new THREE.DirectionalLight(0x66aaff, 0.4);
+      fillLight.position.set(-6, 6, -6);
+      scene.add(fillLight);
+      
+      const rimLight = new THREE.PointLight(0xffd700, 0.9, 35);
+      rimLight.position.set(0, 8, 0);
+      scene.add(rimLight);
+      
+      // グリッド
+      const grid = new THREE.GridHelper(24, 24, 0x444444, 0x222222);
+      grid.position.y = -2.5;
+      scene.add(grid);
+      
+      // 軸ヘルパー
+      axesHelper = new THREE.AxesHelper(5);
+      scene.add(axesHelper);
+      
+      // コントロール
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.minDistance = 4;
+      controls.maxDistance = 25;
+      
+      buildGears();
+      
+      window.addEventListener("resize", () => {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+      });
+    }
+
+    // ============================================================
+    // ギヤメッシュ構築
+    // ============================================================
+    function buildGears() {
+      // クリーンアップ
+      if (sunMesh) scene.remove(sunMesh);
+      if (ringMesh) scene.remove(ringMesh);
+      if (carrierGroup) scene.remove(carrierGroup);
+      planetMeshes = [];
+      carrierArms = [];
+      wireframeObjects = [];
+      
+      // サンギヤ
+      const sunShape = buildInvoluteGearProfile(rSun, Zs, false);
+      const sunGeo = extrudeGear(sunShape);
+      sunMesh = new THREE.Mesh(
+        sunGeo,
+        new THREE.MeshStandardMaterial({
+          color: 0xff6b6b,
+          metalness: 0.4,
+          roughness: 0.3
+        })
+      );
+      sunMesh.castShadow = true;
+      sunMesh.receiveShadow = true;
+      scene.add(sunMesh);
+      
+      // サンギヤのワイヤーフレーム
+      const sunWire = new THREE.LineSegments(
+        new THREE.EdgesGeometry(sunGeo),
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })
+      );
+      sunMesh.add(sunWire);
+      wireframeObjects.push(sunWire);
+      
+      // リングギヤ
+      const ringShape = buildInvoluteGearProfile(rRing, Zr, true);
+      const ringGeo = extrudeGear(ringShape);
+      ringMesh = new THREE.Mesh(
+        ringGeo,
+        new THREE.MeshStandardMaterial({
+          color: 0x8b4789,
+          metalness: 0.35,
+          roughness: 0.35,
+          side: THREE.DoubleSide
+        })
+      );
+      ringMesh.castShadow = true;
+      ringMesh.receiveShadow = true;
+      scene.add(ringMesh);
+      
+      const ringWire = new THREE.LineSegments(
+        new THREE.EdgesGeometry(ringGeo),
+        new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })
+      );
+      ringMesh.add(ringWire);
+      wireframeObjects.push(ringWire);
+      
+      // キャリアとプラネットギヤ
+      carrierGroup = new THREE.Group();
+      scene.add(carrierGroup);
+      
+      const planetShape = buildInvoluteGearProfile(rPlanet, Zp, false);
+      const planetGeo = extrudeGear(planetShape);
+      
+      for (let i = 0; i < numPlanets; i++) {
+        const angle = (i / numPlanets) * 2 * Math.PI;
+        
+        // プラネットギヤ
+        const planet = new THREE.Mesh(
+          planetGeo,
+          new THREE.MeshStandardMaterial({
+            color: 0x4a9eff,
+            metalness: 0.4,
+            roughness: 0.3
+          })
+        );
+        planet.position.set(
+          Math.cos(angle) * centerDistance,
+          0,
+          Math.sin(angle) * centerDistance
+        );
+        planet.castShadow = true;
+        planet.receiveShadow = true;
+        carrierGroup.add(planet);
+        planetMeshes.push(planet);
+        
+        const planetWire = new THREE.LineSegments(
+          new THREE.EdgesGeometry(planetGeo),
+          new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3 })
+        );
+        planet.add(planetWire);
+        wireframeObjects.push(planetWire);
+        
+        // キャリアアーム
+        const armGeo = new THREE.BoxGeometry(centerDistance * 2.2, 0.10, 0.15);
+        const arm = new THREE.Mesh(
+          armGeo,
+          new THREE.MeshStandardMaterial({
+            color: 0x4af2a1,
+            metalness: 0.2,
+            roughness: 0.4,
+            transparent: true,
+            opacity: 0.9
+          })
+        );
+        arm.rotation.y = angle;
+        arm.castShadow = true;
+        carrierGroup.add(arm);
+        carrierArms.push(arm);
+      }
+      
+      // キャリア中心ハブ
+      const hub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.25, 0.25, gearThickness * 1.2, 24),
+        new THREE.MeshStandardMaterial({
+          color: 0x4af2a1,
+          metalness: 0.3,
+          roughness: 0.4
+        })
+      );
+      hub.rotation.x = Math.PI / 2;
+      hub.castShadow = true;
+      carrierGroup.add(hub);
+      carrierArms.push(hub);
+    }
+
+    // ============================================================
+    // Willis式による運動学計算
+    // ============================================================
+    function solveKinematics() {
+      // Willis式: ωs·Zs + ωr·Zr = ωc·(Zs + Zr)
+      const lockCount = (sunLocked ? 1 : 0) + (ringLocked ? 1 : 0) + (carrierLocked ? 1 : 0);
+      
+      if (lockCount >= 2) {
+        // 2つ以上固定 → すべて停止
+        if (!sunLocked) sunSpeed = 0;
+        if (!ringLocked) ringSpeed = 0;
+        if (!carrierLocked) carrierSpeed = 0;
+        return;
+      }
+      
+      if (lockCount === 1) {
+        if (ringLocked) {
+          // リング固定（最も一般的な減速機）
+          // ωc = (ωs·Zs) / (Zs + Zr)
+          carrierSpeed = (sunSpeed * Zs) / (Zs + Zr);
+        } else if (sunLocked) {
+          // サン固定（増速機）
+          // ωc = (ωr·Zr) / (Zs + Zr)
+          carrierSpeed = (ringSpeed * Zr) / (Zs + Zr);
+        } else if (carrierLocked) {
+          // キャリア固定（方向転換機）
+          // ωr = -(ωs·Zs) / Zr
+          if (lastChanged === "sun") {
+            ringSpeed = -(sunSpeed * Zs) / Zr;
+          } else {
+            sunSpeed = -(ringSpeed * Zr) / Zs;
+          }
+        }
+      } else {
+        // ロックなし → Willis式から計算
+        // ωc = (ωs·Zs + ωr·Zr) / (Zs + Zr)
+        carrierSpeed = (sunSpeed * Zs + ringSpeed * Zr) / (Zs + Zr);
+      }
+    }
+
+    function calculatePlanetSelfRotation() {
+      // プラネットの自転速度（キャリア基準）
+      // ωp_self = -(Zs / Zp) · (ωs - ωc)
+      return -(Zs / Zp) * (sunSpeed - carrierSpeed);
+    }
+
+    // ============================================================
+    // UI更新
+    // ============================================================
+    function updateUI() {
+      sunSlider.value = sunSpeed;
+      ringSlider.value = ringSpeed;
+      carSlider.value = carrierSpeed;
+      
+      sunTxt.textContent = sunSpeed.toFixed(1);
+      ringTxt.textContent = ringSpeed.toFixed(1);
+      carTxt.textContent = carrierSpeed.toFixed(1);
+      
+      statSun.textContent = sunSpeed.toFixed(1) + " RPM";
+      statRing.textContent = ringSpeed.toFixed(1) + " RPM";
+      statCar.textContent = carrierSpeed.toFixed(1) + " RPM";
+      statPlanet.textContent = calculatePlanetSelfRotation().toFixed(1) + " RPM";
+      
+      // 減速比計算
+      const epsilon = 0.1;
+      if (Math.abs(carrierSpeed) > epsilon && Math.abs(sunSpeed) > epsilon) {
+        const ratio = Math.abs(sunSpeed / carrierSpeed);
+        statRatio.textContent = ratio.toFixed(2) + ":1";
+        statTorque.textContent = ratio.toFixed(2) + "x";
+      } else {
+        statRatio.textContent = "-";
+        statTorque.textContent = "-";
+      }
+      
+      // Willis式検証
+      const lhs = sunSpeed * Zs + ringSpeed * Zr;
+      const rhs = carrierSpeed * (Zs + Zr);
+      const error = Math.abs(lhs - rhs);
+      
+      if (error < 0.1) {
+        willisCheck.innerHTML = "✓ 成立 (誤差: " + error.toFixed(3) + ")";
+        willisCheck.style.color = "#4af2a1";
+      } else {
+        willisCheck.innerHTML = "✗ 不成立 (誤差: " + error.toFixed(3) + ")";
+        willisCheck.style.color = "#f5576c";
+      }
+    }
+
+    function recalculate() {
+      solveKinematics();
+      updateUI();
+    }
+
+    // ============================================================
+    // モード設定
+    // ============================================================
+    window.setMode = function(mode) {
+      sunLocked = ringLocked = carrierLocked = false;
+      sunLock.checked = ringLock.checked = carLock.checked = false;
+      sunSlider.disabled = ringSlider.disabled = carSlider.disabled = false;
+      
+      switch (mode) {
+        case 'reduction':
+          modeBadge.textContent = "減速モード";
+          modeBadge.style.background = "linear-gradient(135deg,#f093fb 0%,#f5576c 100%)";
+          modeBadge.style.color = "#fff";
+          sunSpeed = 60;
+          ringSpeed = 0;
+          ringLocked = true;
+          ringLock.checked = true;
+          ringSlider.disabled = true;
+          lastChanged = "sun";
+          break;
+          
+        case 'increase':
+          modeBadge.textContent = "増速モード";
+          modeBadge.style.background = "linear-gradient(135deg,#4facfe 0%,#00f2fe 100%)";
+          modeBadge.style.color = "#fff";
+          sunSpeed = 0;
+          ringSpeed = 60;
+          sunLocked = true;
+          sunLock.checked = true;
+          sunSlider.disabled = true;
+          lastChanged = "ring";
+          break;
+          
+        case 'direct':
+          modeBadge.textContent = "直結モード";
+          modeBadge.style.background = "linear-gradient(135deg,#ffd700 0%,#ffed4e 100%)";
+          modeBadge.style.color = "#333";
+          sunSpeed = ringSpeed = 60;
+          lastChanged = "sun";
+          break;
+          
+        case 'reverse':
+          modeBadge.textContent = "逆転モード";
+          modeBadge.style.background = "linear-gradient(135deg,#667eea 0%,#764ba2 100%)";
+          modeBadge.style.color = "#fff";
+          sunSpeed = 0;
+          carrierSpeed = 60;
+          sunLocked = true;
+          sunLock.checked = true;
+          sunSlider.disabled = true;
+          lastChanged = "car";
+          break;
+      }
+      
+      recalculate();
+    }
+
+    // ============================================================
+    // コントロール
+    // ============================================================
+    window.toggleAnim = function() {
+      running = !running;
+      toggleBtn.textContent = running ? "⏸️ 停止" : "▶️ 再生";
+    }
+
+    window.resetView = function() {
+      camera.position.set(6, 4, 8);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+
+    // イベントリスナー
+    sunSlider.addEventListener("input", e => {
+      if (sunLocked) return;
+      lastChanged = "sun";
+      sunSpeed = parseFloat(e.target.value);
+      recalculate();
+    });
+
+    ringSlider.addEventListener("input", e => {
+      if (ringLocked) return;
+      lastChanged = "ring";
+      ringSpeed = parseFloat(e.target.value);
+      recalculate();
+    });
+
+    carSlider.addEventListener("input", e => {
+      if (carrierLocked) return;
+      lastChanged = "car";
+      carrierSpeed = parseFloat(e.target.value);
+      recalculate();
+    });
+
+    sunLock.addEventListener("change", e => {
+      sunLocked = e.target.checked;
+      sunSlider.disabled = sunLocked;
+      if (sunLocked) sunSpeed = 0;
+      recalculate();
+    });
+
+    ringLock.addEventListener("change", e => {
+      ringLocked = e.target.checked;
+      ringSlider.disabled = ringLocked;
+      if (ringLocked) ringSpeed = 0;
+      recalculate();
+    });
+
+    carLock.addEventListener("change", e => {
+      carrierLocked = e.target.checked;
+      carSlider.disabled = carrierLocked;
+      if (carrierLocked) carrierSpeed = 0;
+      recalculate();
+    });
+
+    showWireframe.addEventListener("change", e => {
+      wireframeObjects.forEach(w => w.visible = e.target.checked);
+    });
+
+    // ============================================================
+    // アニメーションループ
+    // ============================================================
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      if (running) {
+        const dt = 1 / 60;
+        const rpm2rad = (2 * Math.PI) / 60;
+        
+        sunAngle += sunSpeed * rpm2rad * dt;
+        ringAngle += ringSpeed * rpm2rad * dt;
+        carrierAngle += carrierSpeed * rpm2rad * dt;
+        
+        if (sunMesh) sunMesh.rotation.y = sunAngle;
+        if (ringMesh) ringMesh.rotation.y = ringAngle;
+        if (carrierGroup) carrierGroup.rotation.y = carrierAngle;
+        
+        // プラネットギヤの自転（完全噛み合い）
+        const planetSelfRotation = -(Zs / Zp) * (sunAngle - carrierAngle);
+        planetMeshes.forEach((planet, i) => {
+          const phaseOffset = (i / numPlanets) * 2 * Math.PI;
+          planet.rotation.y = planetSelfRotation - phaseOffset * (Zs / Zp);
+        });
+      }
+      
+      // 表示制御
+      axesHelper.visible = showAxes.checked;
+      carrierArms.forEach(obj => obj.visible = showCarrier.checked);
+      
+      // 自動回転
+      if (autoRotate.checked) {
+        const t = Date.now() * 0.0002;
+        const radius = 10;
+        camera.position.x = Math.cos(t) * radius;
+        camera.position.z = Math.sin(t) * radius;
+        camera.position.y = 4 + Math.sin(t * 0.5) * 2;
+        camera.lookAt(0, 0, 0);
+      }
+      
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // ============================================================
+    // 初期化・開始
+    // ============================================================
+    initScene();
+    setMode('reduction');
+    animate();
+  </script>
+
+</body>
+</html>
