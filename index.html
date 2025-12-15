@@ -142,14 +142,14 @@
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // Load Lexus IS500 model
+  // Load GT Race Car model
   let car = null;
   const loader = new GLTFLoader();
 
-  log('Loading IS500 model...');
+  log('Loading GT Race Car model...');
 
   loader.load(
-    './ls500_like.gltf',
+    './gt_racecar_like.gltf',
     (gltf) => {
       log('Model loaded successfully');
       car = gltf.scene;
@@ -235,7 +235,7 @@
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  log('Lexus IS500 Viewer ready');
+  log('GT Race Car Viewer ready');
 
   } catch (error) {
     log('ERROR: ' + error.message);
