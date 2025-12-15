@@ -157,6 +157,14 @@
 
   scene.add(new THREE.AmbientLight(0x6080b0, 0.4));
 
+  // Debug test cube to verify Three.js is working
+  const testCube = new THREE.Mesh(
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 })
+  );
+  testCube.position.set(0, 0.5, 0);
+  scene.add(testCube);
+
   // Ground
   const ground = new THREE.Mesh(
     new THREE.PlaneGeometry(100, 100),
@@ -438,6 +446,8 @@
   function createPointCloudFromPositions(posArr, normalArr=null){
     disposePoints();
 
+    console.log('Creating particles:', posArr.length / 3, 'points');
+
     basePositions = posArr;
     normals = normalArr;
     targetPositions = new Float32Array(posArr);
@@ -457,15 +467,24 @@
     points = new THREE.Points(geo, particleMat);
     root.add(points);
 
+    console.log('Particles created and added to scene');
+    console.log('Points position:', points.position);
+    console.log('Root position:', root.position);
+
     logoCount = Math.min(5000, Math.floor((posArr.length/3) * 0.08));
     logoTargets = buildTeslaLogoPointsSVG(logoCount);
 
     controls.target.set(0, 0.5, 0);
     controls.update();
+
+    // Show debug info
+    showInfo(`パーティクル生成: ${(posArr.length/3).toLocaleString()}点`, 2000);
   }
 
   // Initialize with procedural Tesla
-  createPointCloudFromPositions(buildProceduralTeslaPoints(params.count), null);
+  const teslaPoints = buildProceduralTeslaPoints(params.count);
+  console.log('Tesla points generated:', teslaPoints.length / 3);
+  createPointCloudFromPositions(teslaPoints, null);
 
   // Animation loop
   const clock = new THREE.Clock();
