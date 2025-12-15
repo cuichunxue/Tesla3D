@@ -104,29 +104,14 @@
 
   // Scene setup
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x0f0f14);
-  scene.fog = new THREE.FogExp2(0x0f0f14, 0.015);
+  scene.background = new THREE.Color(0x0a0a12);
+  scene.fog = new THREE.Fog(0x0a0a12, 8, 25);
 
-  // Isometric camera setup
-  const aspect = innerWidth / innerHeight;
-  const frustumSize = 3.5;
-  const camera = new THREE.OrthographicCamera(
-    -frustumSize * aspect / 2,
-    frustumSize * aspect / 2,
-    frustumSize / 2,
-    -frustumSize / 2,
-    0.1,
-    100
-  );
+  // Camera setup - Perspective for better mobile performance
+  const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 100);
 
-  // Isometric angle (45° from above, closer view)
-  const distance = 10;
-  const angle = Math.PI / 4; // 45 degrees
-  camera.position.set(
-    distance * Math.cos(angle),
-    distance * 0.6,
-    distance * Math.sin(angle)
-  );
+  // Isometric-style angle (elevated view)
+  camera.position.set(4, 3, 4);
   camera.lookAt(0, 0.5, 0);
 
   const renderer = new THREE.WebGLRenderer({
@@ -134,23 +119,25 @@
     alpha: false,
     powerPreference: "high-performance"
   });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.2;
+  renderer.toneMappingExposure = 1.3;
   document.body.appendChild(renderer.domElement);
 
-  // Touch-optimized controls (adapted for orthographic)
+  // Touch-optimized controls
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
   controls.enableZoom = true;
-  controls.zoomSpeed = 0.5;
+  controls.zoomSpeed = 0.8;
+  controls.minDistance = 2;
+  controls.maxDistance = 15;
   controls.target.set(0, 0.5, 0);
   controls.enablePan = true;
-  controls.panSpeed = 0.5;
-  controls.rotateSpeed = 0.5;
+  controls.panSpeed = 0.6;
+  controls.rotateSpeed = 0.6;
   controls.touches = {
     ONE: THREE.TOUCH.ROTATE,
     TWO: THREE.TOUCH.DOLLY_PAN
@@ -213,8 +200,8 @@
 
   // Parameters (mobile optimized)
   const params = {
-    count: 80000,  // Increased for better visibility
-    size: 0.024,   // Larger particles
+    count: 50000,  // Balanced for mobile
+    size: 0.018,
     opacity: 1.0,
     explode: 0.0,
     explodeRadius: 2.8,
@@ -232,13 +219,13 @@
     logoZ: 0.0,
   };
 
-  // Particle shader (isometric optimized, silhouette aware)
+  // Particle shader (perspective camera, silhouette aware)
   const particleMat = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
     blending: THREE.AdditiveBlending,
     uniforms: {
-      uSize: { value: params.size * 600 },
+      uSize: { value: params.size * 1000 },
       uOpacity: { value: params.opacity },
       uTime: { value: 0 },
     },
@@ -248,15 +235,17 @@
       attribute float aW;
       varying float vW;
       varying float vY;
+      varying float vDepth;
 
       void main(){
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        vY = position.y; // Height for color variation
+        vY = position.y;
         vW = aW;
+        vDepth = clamp((-mv.z - 1.0) / 10.0, 0.0, 1.0);
 
-        // Orthographic camera - constant size
-        float size = uSize;
-        size *= mix(1.0, 2.8, vW); // Emphasize silhouette edges
+        // Perspective size attenuation
+        float size = uSize / max(1.0, -mv.z);
+        size *= mix(1.2, 3.0, vW); // Emphasize silhouette edges
 
         gl_PointSize = size;
         gl_Position = projectionMatrix * mv;
@@ -266,22 +255,23 @@
       uniform float uOpacity;
       varying float vY;
       varying float vW;
+      varying float vDepth;
 
       void main(){
         vec2 uv = gl_PointCoord - vec2(0.5);
         float d = length(uv);
         float alpha = smoothstep(0.5, 0.0, d);
-        alpha = pow(alpha, 1.3);
+        alpha = pow(alpha, 1.2);
 
-        // Tesla-inspired colors (brighter blue-white gradient)
-        vec3 colA = vec3(0.6, 0.8, 1.0);   // Brighter blue
-        vec3 colB = vec3(1.0, 1.0, 1.0);   // Pure white
-        float heightMix = clamp(vY / 1.8, 0.0, 1.0);
-        vec3 col = mix(colA, colB, heightMix * 0.8);
+        // Tesla-inspired colors (blue-white gradient)
+        vec3 colA = vec3(0.55, 0.75, 1.0);
+        vec3 colB = vec3(1.0, 1.0, 1.0);
+        float heightMix = clamp(vY / 1.6, 0.0, 1.0);
+        vec3 col = mix(colA, colB, mix(heightMix, 1.0, vDepth * 0.5));
 
         // Silhouette edges glow
-        col *= mix(1.2, 2.2, vW);
-        alpha *= mix(1.0, 1.6, vW);
+        col *= mix(1.3, 2.5, vW);
+        alpha *= mix(1.0, 1.7, vW);
 
         gl_FragColor = vec4(col, alpha * uOpacity);
       }
@@ -594,34 +584,23 @@
     btnRotate.classList.remove("active");
     root.rotation.set(0,0,0);
 
-    // Reset to isometric view
-    const distance = 10;
-    const angle = Math.PI / 4;
-    camera.position.set(
-      distance * Math.cos(angle),
-      distance * 0.6,
-      distance * Math.sin(angle)
-    );
+    // Reset to elevated view
+    camera.position.set(4, 3, 4);
     controls.target.set(0, 0.5, 0);
     controls.update();
     showInfo("リセット完了");
   });
 
-  // Resize handler (orthographic camera)
+  // Resize handler
   window.addEventListener("resize", ()=>{
-    const aspect = innerWidth / innerHeight;
-    const frustumSize = 3.5;
-    camera.left = -frustumSize * aspect / 2;
-    camera.right = frustumSize * aspect / 2;
-    camera.top = frustumSize / 2;
-    camera.bottom = -frustumSize / 2;
+    camera.aspect = innerWidth / innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(innerWidth, innerHeight);
     composer.setSize(innerWidth, innerHeight);
   });
 
   // Initial welcome message
-  setTimeout(()=>showInfo("Tesla Model Y - アイソメトリックビュー", 3000), 500);
+  setTimeout(()=>showInfo("Tesla Model Y", 3000), 500);
 </script>
 </body>
 </html>
